@@ -1,4 +1,4 @@
-# Szakdolgozat: Szabadságkezelő Rendszer (Laravel 11 + Inertia React + Tailwind)
+# Szakdolgozat: Szabadságkezelő Rendszer
 
 Több role-os (user / manager / admin) webalapú szabadságkezelő rendszer.  
 Technológiák: **Laravel 11**, **Inertia.js (React)**, **Tailwind CSS**, **MySQL**.
