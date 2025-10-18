@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Traits\LogsActivity;
+use App\Traits\CreatesNotifications;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -10,6 +12,7 @@ use Illuminate\Validation\Rules\Password;
 
 class PasswordController extends Controller
 {
+    use LogsActivity, CreatesNotifications;
     /**
      * Update the user's password.
      */
@@ -20,9 +23,25 @@ class PasswordController extends Controller
             'password' => ['required', Password::defaults(), 'confirmed'],
         ]);
 
-        $request->user()->update([
+        $user = $request->user();
+        $user->update([
             'password' => Hash::make($validated['password']),
         ]);
+
+        // Log password change
+        $this->logActivity(
+            'password_changed',
+            'Jelszó módosítva',
+            $user
+        );
+
+        // Create notification for password change
+        $this->createNotification(
+            $user->id,
+            'password_changed',
+            'Jelszó sikeresen módosítva',
+            'A jelszavad sikeresen frissítve lett. Ha nem te végezted ezt a műveletet, azonnal változtasd meg a jelszavad!'
+        );
 
         return back();
     }

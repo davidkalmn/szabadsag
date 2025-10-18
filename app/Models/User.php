@@ -21,6 +21,9 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'role',
+        'manager_id',
+        'total_leave_days',
     ];
 
     /**
@@ -44,5 +47,21 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    /**
+     * Get the manager of this user.
+     */
+    public function manager()
+    {
+        return $this->belongsTo(User::class, 'manager_id');
+    }
+
+    /**
+     * Get the users managed by this user.
+     */
+    public function subordinates()
+    {
+        return $this->hasMany(User::class, 'manager_id');
     }
 }

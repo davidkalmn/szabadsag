@@ -1,5 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import ApplicationLogo from '@/Components/ApplicationLogo';
 import Dropdown from '@/Components/Dropdown';
 import NavLink from '@/Components/NavLink';
@@ -9,6 +9,39 @@ export default function Navbar() {
     const { auth } = usePage().props;
     const user = auth.user;
     const [showingNavigationDropdown, setShowingNavigationDropdown] = useState(false);
+    const [unreadCount, setUnreadCount] = useState(0);
+
+    // Fetch unread notifications count
+    useEffect(() => {
+        const fetchUnreadCount = async () => {
+            try {
+                const response = await fetch(route('ertesitesek.unread-count'));
+                const data = await response.json();
+                setUnreadCount(data.count);
+            } catch (error) {
+                console.error('Error fetching unread count:', error);
+            }
+        };
+
+        fetchUnreadCount();
+        
+        // Refresh count every 30 seconds
+        const interval = setInterval(fetchUnreadCount, 30000);
+        
+        // Listen for custom events when notifications are marked as read
+        const handleNotificationRead = () => {
+            fetchUnreadCount();
+        };
+
+        window.addEventListener('notification-read', handleNotificationRead);
+        window.addEventListener('notifications-read-all', handleNotificationRead);
+        
+        return () => {
+            clearInterval(interval);
+            window.removeEventListener('notification-read', handleNotificationRead);
+            window.removeEventListener('notifications-read-all', handleNotificationRead);
+        };
+    }, []);
 
     // Define navigation items based on user role
     const getNavigationItems = () => {
@@ -87,21 +120,17 @@ export default function Navbar() {
 
         // Admin only items
         const adminItems = [];
-        if (user.role === 'admin') {
-            adminItems.push(
-                {
-                    name: 'Felhasználók',
-                    href: route('felhasznalok.index'),
-                    route: 'felhasznalok.index',
-                    roles: ['admin']
-                },
-                {
-                    name: 'Napló',
-                    href: route('naplo.index'),
-                    route: 'naplo.index',
-                    roles: ['admin']
-                }
-            );
+        // Note: Napló is now available to all users, so no admin-only items for now
+
+        // Manager and Admin can see Users
+        const userManagementItems = [];
+        if (['manager', 'admin'].includes(user.role)) {
+            userManagementItems.push({
+                name: 'Felhasználók',
+                href: route('felhasznalok.index'),
+                route: 'felhasznalok.index',
+                roles: ['manager', 'admin']
+            });
         }
 
         // Common items for all users
@@ -120,11 +149,22 @@ export default function Navbar() {
             }
         ];
 
+        // Logs only for managers and admins
+        if (['manager', 'admin'].includes(user.role)) {
+            commonItems.push({
+                name: 'Napló',
+                href: route('naplo.index'),
+                route: 'naplo.index',
+                roles: ['manager', 'admin']
+            });
+        }
+
         return {
             main: items,
             leaves: leaveItems,
             calendar: calendarItems,
             admin: adminItems,
+            userManagement: userManagementItems,
             common: commonItems
         };
     };
@@ -249,6 +289,17 @@ export default function Navbar() {
                                 </NavLink>
                             ))}
 
+                            {/* User Management navigation */}
+                            {navigationItems.userManagement.map((item) => (
+                                <NavLink
+                                    key={item.name}
+                                    href={item.href}
+                                    active={route().current(item.route)}
+                                >
+                                    {item.name}
+                                </NavLink>
+                            ))}
+
                             {/* Common navigation */}
                             {navigationItems.common.map((item) => (
                                 <NavLink
@@ -256,7 +307,14 @@ export default function Navbar() {
                                     href={item.href}
                                     active={route().current(item.route)}
                                 >
-                                    {item.name}
+                                    <div className="flex items-center">
+                                        <span>{item.name}</span>
+                                        {item.name === 'Értesítések' && unreadCount > 0 && (
+                                            <span className="ml-2 inline-flex items-center justify-center px-2 py-1 text-xs font-medium leading-none text-green-700 bg-green-100 rounded-full">
+                                                {unreadCount > 99 ? '99+' : unreadCount}
+                                            </span>
+                                        )}
+                                    </div>
                                 </NavLink>
                             ))}
                         </div>
@@ -430,6 +488,27 @@ export default function Navbar() {
                         </>
                     )}
 
+                    {/* User Management section */}
+                    {navigationItems.userManagement.length > 0 && (
+                        <>
+                            <div className="px-4 py-2">
+                                <div className="text-sm font-medium text-gray-500 uppercase tracking-wider">
+                                    Felhasználók
+                                </div>
+                            </div>
+                            {navigationItems.userManagement.map((item) => (
+                                <ResponsiveNavLink
+                                    key={item.name}
+                                    href={item.href}
+                                    active={route().current(item.route)}
+                                    className="pl-8"
+                                >
+                                    {item.name}
+                                </ResponsiveNavLink>
+                            ))}
+                        </>
+                    )}
+
                     {/* Common navigation */}
                     {navigationItems.common.map((item) => (
                         <ResponsiveNavLink
@@ -437,7 +516,14 @@ export default function Navbar() {
                             href={item.href}
                             active={route().current(item.route)}
                         >
-                            {item.name}
+                            <div className="flex items-center justify-between">
+                                <span>{item.name}</span>
+                                {item.name === 'Értesítések' && unreadCount > 0 && (
+                                    <span className="ml-2 inline-flex items-center justify-center px-2 py-1 text-xs font-medium leading-none text-green-700 bg-green-100 rounded-full">
+                                        {unreadCount > 99 ? '99+' : unreadCount}
+                                    </span>
+                                )}
+                            </div>
                         </ResponsiveNavLink>
                     ))}
                 </div>

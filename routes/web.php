@@ -1,6 +1,9 @@
 <?php
 
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\UserController;
+use App\Http\Controllers\LogController;
+use App\Http\Controllers\NotificationController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -55,19 +58,36 @@ Route::middleware('auth')->group(function () {
             ->name('osszes');
     });
 
-    // --- Felhasználók (admin) ---
-    Route::middleware('role:admin')->group(function () {
-        Route::get('/felhasznalok', fn () => Inertia::render('Users/Index'))->name('felhasznalok.index');
-        Route::get('/felhasznalok/{id}', fn ($id) => Inertia::render('Users/Show', ['id' => (int)$id]))->name('felhasznalok.show');
-    });
+    // --- Felhasználók (admin és manager) ---
+    Route::get('/felhasznalok', [UserController::class, 'index'])
+        ->middleware('role:admin,manager')
+        ->name('felhasznalok.index');
+    Route::post('/felhasznalok', [UserController::class, 'store'])
+        ->middleware('role:admin,manager')
+        ->name('felhasznalok.store');
+    Route::get('/felhasznalok/{user}', [UserController::class, 'show'])
+        ->middleware('role:admin,manager')
+        ->name('felhasznalok.show');
+    Route::get('/felhasznalok/{user}/edit', [UserController::class, 'edit'])
+        ->middleware('role:admin,manager')
+        ->name('felhasznalok.edit');
+    Route::put('/felhasznalok/{user}', [UserController::class, 'update'])
+        ->middleware('role:admin,manager')
+        ->name('felhasznalok.update');
 
     // --- Értesítések (minden belépett) ---
-    Route::get('/ertesitesek', fn () => Inertia::render('Notifications/Index'))
+    Route::get('/ertesitesek', [NotificationController::class, 'index'])
         ->name('ertesitesek.index');
+    Route::post('/ertesitesek/{notification}/read', [NotificationController::class, 'markAsRead'])
+        ->name('ertesitesek.read');
+    Route::post('/ertesitesek/read-all', [NotificationController::class, 'markAllAsRead'])
+        ->name('ertesitesek.read-all');
+    Route::get('/ertesitesek/unread-count', [NotificationController::class, 'getUnreadCount'])
+        ->name('ertesitesek.unread-count');
 
-    // --- Napló (admin) ---
-    Route::get('/naplo', fn () => Inertia::render('Logs/Index'))
-        ->middleware('role:admin')
+    // --- Napló (csak manager és admin) ---
+    Route::get('/naplo', [LogController::class, 'index'])
+        ->middleware('role:manager,admin')
         ->name('naplo.index');
 
     // --- GYIK (mindenki) ---
