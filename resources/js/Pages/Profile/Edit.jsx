@@ -1,4 +1,5 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import PageContainer from '@/Components/PageContainer';
 import { Head } from '@inertiajs/react';
 import DeleteUserForm from './Partials/DeleteUserForm';
 import UpdatePasswordForm from './Partials/UpdatePasswordForm';
@@ -6,17 +7,14 @@ import UpdateProfileInformationForm from './Partials/UpdateProfileInformationFor
 
 export default function Edit({ mustVerifyEmail, status }) {
     return (
-        <AuthenticatedLayout
-            header={
-                <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                    Profile
-                </h2>
-            }
-        >
-            <Head title="Profile" />
+        <AuthenticatedLayout>
+            <Head title="Beállítások" />
 
-            <div className="py-12">
-                <div className="mx-auto max-w-7xl space-y-6 sm:px-6 lg:px-8">
+            <PageContainer>
+                <div className="space-y-6">
+                    <h1 className="text-2xl font-semibold text-gray-800">
+                        Beállítások
+                    </h1>
                     <div className="bg-white p-4 shadow sm:rounded-lg sm:p-8">
                         <UpdateProfileInformationForm
                             mustVerifyEmail={mustVerifyEmail}
@@ -33,7 +31,7 @@ export default function Edit({ mustVerifyEmail, status }) {
                         <DeleteUserForm className="max-w-xl" />
                     </div>
                 </div>
-            </div>
+            </PageContainer>
         </AuthenticatedLayout>
     );
 }

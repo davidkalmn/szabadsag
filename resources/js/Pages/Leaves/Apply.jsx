@@ -1,3 +1,14 @@
+import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import PageContainer from '@/Components/PageContainer';
+import { Head } from '@inertiajs/react';
+
 export default function Apply() {
-  return <div className="p-6">Apply oldal</div>;
+    return (
+        <AuthenticatedLayout>
+            <Head title="Szabadság igénylés" />
+            <PageContainer>
+                <div>Igénylés oldal</div>
+            </PageContainer>
+        </AuthenticatedLayout>
+    );
 }
