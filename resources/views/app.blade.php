@@ -7,7 +7,7 @@
         <title inertia>{{ config('app.name', 'Szabadsagkezeles') }}</title>
 
         <!-- Favicon -->
-        <link rel="icon" type="image/png" href="/images/szechenyi_favicon_1.jpg">
+        <link rel="icon" type="image/png" href="/images/favicon.jpg">
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">

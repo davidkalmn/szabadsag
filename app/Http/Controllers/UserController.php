@@ -22,10 +22,10 @@ class UserController extends Controller
         // Filter users based on current user's role - only show active users
         if ($currentUser->role === 'admin') {
             // Admins can see all active users
-            $users = User::active()->with('manager')->get();
+            $users = User::active()->with(['manager', 'pendingLeaves'])->get();
         } elseif ($currentUser->role === 'manager') {
             // Managers can see their active subordinates, themselves, and active admins (for manager selection)
-            $users = User::active()->with('manager')
+            $users = User::active()->with(['manager', 'pendingLeaves'])
                 ->where(function($query) use ($currentUser) {
                     $query->where('manager_id', $currentUser->id)
                           ->orWhere('id', $currentUser->id)
@@ -34,7 +34,17 @@ class UserController extends Controller
                 ->get();
         } else {
             // Teachers can only see themselves
-            $users = User::active()->with('manager')->where('id', $currentUser->id)->get();
+            $users = User::active()->with(['manager', 'pendingLeaves'])->where('id', $currentUser->id)->get();
+        }
+
+        // Initialize remaining leaves for users who don't have it set and calculate pending leaves days
+        foreach ($users as $user) {
+            $user->initializeRemainingLeaves();
+            // Calculate pending leaves days for display
+            $user->pending_leaves_days = $user->pendingLeaves()->sum('days_requested');
+            
+            // Calculate actual remaining leaves dynamically
+            $user->remaining_leaves_current_year = $user->calculateRemainingLeaves();
         }
         
         return inertia('Users/Index', [
@@ -83,6 +93,7 @@ class UserController extends Controller
             'role' => $request->role,
             'manager_id' => $managerId,
             'total_leave_days' => $request->total_leave_days,
+            'remaining_leaves_current_year' => $request->total_leave_days,
         ]);
 
         // Log the user creation

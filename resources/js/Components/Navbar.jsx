@@ -70,13 +70,13 @@ export default function Navbar() {
             }
         ];
 
-        // Manager and Admin can see team requests
-        if (['manager', 'admin'].includes(user.role)) {
+        // Only Manager can see team requests (admins see all requests instead)
+        if (user.role === 'manager') {
             leaveItems.push({
                 name: 'Csapat kérelmek',
                 href: route('szabadsag.kerelmek'),
                 route: 'szabadsag.kerelmek',
-                roles: ['manager', 'admin']
+                roles: ['manager']
             });
         }
 
@@ -185,6 +185,7 @@ export default function Navbar() {
 
                         {/* Desktop navigation */}
                         <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
+                            {/* Group 1: Main navigation (Dashboard, Szabadságok, Naptár) */}
                             {/* Main navigation */}
                             {navigationItems.main.map((item) => (
                                 <NavLink
@@ -208,20 +209,20 @@ export default function Navbar() {
                                                     : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 focus:border-gray-300 focus:text-gray-700'
                                             }`}
                                         >
-                                                Szabadságok
-                                                <svg
-                                                    className="-me-0.5 ms-2 h-4 w-4"
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                    viewBox="0 0 20 20"
-                                                    fill="currentColor"
-                                                >
-                                                    <path
-                                                        fillRule="evenodd"
-                                                        d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                                                        clipRule="evenodd"
-                                                    />
-                                                </svg>
-                                            </button>
+                                            Szabadságok
+                                            <svg
+                                                className="-me-0.5 ms-2 h-4 w-4"
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                viewBox="0 0 20 20"
+                                                fill="currentColor"
+                                            >
+                                                <path
+                                                    fillRule="evenodd"
+                                                    d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                                                    clipRule="evenodd"
+                                                />
+                                            </svg>
+                                        </button>
                                     </Dropdown.Trigger>
 
                                     <Dropdown.Content>
@@ -249,18 +250,18 @@ export default function Navbar() {
                                                     : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 focus:border-gray-300 focus:text-gray-700'
                                             }`}
                                         >
-                                                Naptár
-                                                <svg
-                                                    className="-me-0.5 ms-2 h-4 w-4"
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                    viewBox="0 0 20 20"
-                                                    fill="currentColor"
-                                                >
-                                                    <path
-                                                        fillRule="evenodd"
-                                                        d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                                                        clipRule="evenodd"
-                                                    />
+                                            Naptár
+                                            <svg
+                                                className="-me-0.5 ms-2 h-4 w-4"
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                viewBox="0 0 20 20"
+                                                fill="currentColor"
+                                            >
+                                                <path
+                                                    fillRule="evenodd"
+                                                    d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                                                    clipRule="evenodd"
+                                                />
                                             </svg>
                                         </button>
                                     </Dropdown.Trigger>
@@ -278,6 +279,12 @@ export default function Navbar() {
                                 </Dropdown>
                             </div>
 
+                            {/* Separator 1: Between Group 1 and Group 2 */}
+                            {(navigationItems.userManagement.length > 0 || navigationItems.common.some(item => item.name === 'Értesítések' || item.name === 'Napló')) && (
+                                <div className="h-8 w-px bg-gray-300 self-center"></div>
+                            )}
+
+                            {/* Group 2: User Management and System items (Felhasználók, Értesítések, Napló) */}
                             {/* Admin navigation */}
                             {navigationItems.admin.map((item) => (
                                 <NavLink
@@ -300,8 +307,8 @@ export default function Navbar() {
                                 </NavLink>
                             ))}
 
-                            {/* Common navigation */}
-                            {navigationItems.common.map((item) => (
+                            {/* Értesítések and Napló from common items */}
+                            {navigationItems.common.filter(item => item.name === 'Értesítések' || item.name === 'Napló').map((item) => (
                                 <NavLink
                                     key={item.name}
                                     href={item.href}
@@ -315,6 +322,22 @@ export default function Navbar() {
                                             </span>
                                         )}
                                     </div>
+                                </NavLink>
+                            ))}
+
+                            {/* Separator 2: Between Group 2 and Group 3 */}
+                            {navigationItems.common.some(item => item.name === 'GYIK') && (
+                                <div className="h-8 w-px bg-gray-300 self-center"></div>
+                            )}
+
+                            {/* Group 3: General items (GYIK) */}
+                            {navigationItems.common.filter(item => item.name === 'GYIK').map((item) => (
+                                <NavLink
+                                    key={item.name}
+                                    href={item.href}
+                                    active={route().current(item.route)}
+                                >
+                                    {item.name}
                                 </NavLink>
                             ))}
                         </div>
@@ -422,6 +445,7 @@ export default function Navbar() {
                 }
             >
                 <div className="space-y-1 pb-3 pt-2">
+                    {/* Group 1: Main navigation (Dashboard, Szabadságok, Naptár) */}
                     {/* Main navigation */}
                     {navigationItems.main.map((item) => (
                         <ResponsiveNavLink
@@ -467,6 +491,12 @@ export default function Navbar() {
                         </ResponsiveNavLink>
                     ))}
 
+                    {/* Separator 1: Between Group 1 and Group 2 */}
+                    {(navigationItems.admin.length > 0 || navigationItems.userManagement.length > 0 || navigationItems.common.some(item => item.name === 'Értesítések' || item.name === 'Napló')) && (
+                        <div className="mx-4 border-t border-gray-200"></div>
+                    )}
+
+                    {/* Group 2: Admin, User Management, and System items */}
                     {/* Admin section */}
                     {navigationItems.admin.length > 0 && (
                         <>
@@ -509,8 +539,8 @@ export default function Navbar() {
                         </>
                     )}
 
-                    {/* Common navigation */}
-                    {navigationItems.common.map((item) => (
+                    {/* Értesítések and Napló from common items */}
+                    {navigationItems.common.filter(item => item.name === 'Értesítések' || item.name === 'Napló').map((item) => (
                         <ResponsiveNavLink
                             key={item.name}
                             href={item.href}
@@ -524,6 +554,22 @@ export default function Navbar() {
                                     </span>
                                 )}
                             </div>
+                        </ResponsiveNavLink>
+                    ))}
+
+                    {/* Separator 2: Between Group 2 and Group 3 */}
+                    {navigationItems.common.some(item => item.name === 'GYIK') && (
+                        <div className="mx-4 border-t border-gray-200"></div>
+                    )}
+
+                    {/* Group 3: General items (GYIK) */}
+                    {navigationItems.common.filter(item => item.name === 'GYIK').map((item) => (
+                        <ResponsiveNavLink
+                            key={item.name}
+                            href={item.href}
+                            active={route().current(item.route)}
+                        >
+                            {item.name}
                         </ResponsiveNavLink>
                     ))}
                 </div>

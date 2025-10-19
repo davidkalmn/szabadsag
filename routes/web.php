@@ -4,6 +4,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\LogController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\LeaveController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -25,21 +26,40 @@ Route::middleware('auth')->group(function () {
 
     // --- Szabadságok ---
     Route::prefix('szabadsagok')->name('szabadsag.')->group(function () {
-        // minden szerep: saját + új igénylés
-        Route::middleware('role:teacher,manager,admin')->group(function () {
-            Route::get('sajat-kerelmek', fn () => Inertia::render('Leaves/MyList'))->name('sajat-kerelmek');
-            Route::get('igenyles', fn () => Inertia::render('Leaves/Apply'))->name('igenyles');
-        });
+        // Specific routes first (before wildcard routes)
+        Route::get('sajat-kerelmek', [LeaveController::class, 'index'])
+            ->middleware('role:teacher,manager,admin')
+            ->name('sajat-kerelmek');
+        
+        Route::get('igenyles', [LeaveController::class, 'create'])
+            ->middleware('role:teacher,manager,admin')
+            ->name('igenyles');
+        
+        Route::post('igenyles', [LeaveController::class, 'store'])
+            ->middleware('role:teacher,manager,admin')
+            ->name('store');
 
-        // manager és admin: beosztottak kérelmei
-        Route::get('kerelmek', fn () => Inertia::render('Leaves/TeamIndex'))
-            ->middleware('role:manager,admin')
+        // manager: beosztottak kérelmei
+        Route::get('kerelmek', [LeaveController::class, 'teamLeaves'])
+            ->middleware('role:manager')
             ->name('kerelmek');
 
         // admin: összes kérelem
-        Route::get('osszes-kerelem', fn () => Inertia::render('Leaves/AllIndex'))
+        Route::get('osszes-kerelem', [LeaveController::class, 'allLeaves'])
             ->middleware('role:admin')
             ->name('osszes-kerelem');
+
+        // Wildcard routes last
+        Route::get('{leave}', [LeaveController::class, 'show'])
+            ->middleware('role:teacher,manager,admin')
+            ->name('show');
+
+        // manager és admin: jóváhagyás/elutasítás/érvénytelenítés
+        Route::middleware('role:manager,admin')->group(function () {
+            Route::post('{leave}/approve', [LeaveController::class, 'approve'])->name('approve');
+            Route::post('{leave}/reject', [LeaveController::class, 'reject'])->name('reject');
+            Route::post('{leave}/cancel', [LeaveController::class, 'cancel'])->name('cancel');
+        });
     });
 
     // --- Naptár ---

@@ -24,6 +24,7 @@ class User extends Authenticatable
         'role',
         'manager_id',
         'total_leave_days',
+        'remaining_leaves_current_year',
         'is_active',
     ];
 
@@ -96,5 +97,116 @@ class User extends Authenticatable
     public function reactivate()
     {
         $this->update(['is_active' => true]);
+    }
+
+    /**
+     * Get all leaves for this user.
+     */
+    public function leaves()
+    {
+        return $this->hasMany(Leave::class);
+    }
+
+    /**
+     * Get leaves reviewed by this user.
+     */
+    public function reviewedLeaves()
+    {
+        return $this->hasMany(Leave::class, 'reviewed_by');
+    }
+
+    /**
+     * Get pending leaves for this user.
+     */
+    public function pendingLeaves()
+    {
+        return $this->leaves()->pending();
+    }
+
+    /**
+     * Get approved leaves for this user.
+     */
+    public function approvedLeaves()
+    {
+        return $this->leaves()->approved();
+    }
+
+    /**
+     * Get rejected leaves for this user.
+     */
+    public function rejectedLeaves()
+    {
+        return $this->leaves()->rejected();
+    }
+
+    /**
+     * Get leaves for current year.
+     */
+    public function currentYearLeaves()
+    {
+        return $this->leaves()->currentYear();
+    }
+
+    /**
+     * Get total days of pending leaves for this user.
+     */
+    public function getPendingLeavesDaysAttribute(): int
+    {
+        return $this->pendingLeaves()->sum('days_requested');
+    }
+
+    /**
+     * Get total days of approved leaves for this user in current year.
+     */
+    public function getApprovedLeavesDaysAttribute(): int
+    {
+        return $this->approvedLeaves()->currentYear()->sum('days_requested');
+    }
+
+    /**
+     * Check if user can request leave for given days.
+     */
+    public function canRequestLeave(int $days): bool
+    {
+        return $this->remaining_leaves_current_year >= $days;
+    }
+
+    /**
+     * Reset remaining leaves for new year.
+     */
+    public function resetLeavesForNewYear(): void
+    {
+        $this->update(['remaining_leaves_current_year' => $this->total_leave_days]);
+    }
+
+    /**
+     * Get total available leaves (remaining + pending)
+     */
+    public function getTotalAvailableLeavesAttribute(): int
+    {
+        return $this->remaining_leaves_current_year + $this->pending_leaves_days;
+    }
+
+    /**
+     * Calculate actual remaining leaves dynamically
+     */
+    public function calculateRemainingLeaves(): int
+    {
+        $approvedLeaves = $this->leaves()
+            ->where('status', 'approved')
+            ->currentYear()
+            ->sum('days_requested');
+        $pendingLeaves = $this->pendingLeaves()->sum('days_requested');
+        return $this->total_leave_days - $approvedLeaves - $pendingLeaves;
+    }
+
+    /**
+     * Initialize remaining leaves if not set.
+     */
+    public function initializeRemainingLeaves(): void
+    {
+        if ($this->remaining_leaves_current_year === null || $this->remaining_leaves_current_year === 0) {
+            $this->update(['remaining_leaves_current_year' => $this->total_leave_days]);
+        }
     }
 }

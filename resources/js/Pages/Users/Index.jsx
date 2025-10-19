@@ -96,6 +96,12 @@ export default function Index({ users, currentUser }) {
                                             Szabadság napok
                                         </th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Maradék napok
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Függőben lévő napok
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Műveletek
                                         </th>
                                     </tr>
@@ -130,6 +136,20 @@ export default function Index({ users, currentUser }) {
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                 {user.total_leave_days}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                <span className={`font-medium ${
+                                                    user.remaining_leaves_current_year > 0 ? 'text-green-600' : 'text-red-600'
+                                                }`}>
+                                                    {user.remaining_leaves_current_year || 0}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                <span className={`font-medium ${
+                                                    user.pending_leaves_days > 0 ? 'text-yellow-600' : 'text-gray-500'
+                                                }`}>
+                                                    {user.pending_leaves_days || 0}
+                                                </span>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                                 {canViewUserDetails(user) ? (
