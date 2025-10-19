@@ -4,7 +4,7 @@ import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
 import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, useForm, router } from '@inertiajs/react';
 
 export default function Edit({ user, availableManagers, currentUser }) {
     const { data, setData, put, errors, processing } = useForm({
@@ -53,6 +53,31 @@ export default function Edit({ user, availableManagers, currentUser }) {
     const submit = (e) => {
         e.preventDefault();
         put(route('felhasznalok.update', user.id));
+    };
+
+    const handleDeactivate = () => {
+        if (confirm(`Biztosan deaktiválni szeretnéd a felhasználót "${user.name}"? Ez a művelet visszavonható csak admin jogosultsággal.`)) {
+            router.delete(route('felhasznalok.deactivate', user.id));
+        }
+    };
+
+    const canDeactivate = () => {
+        // Can't deactivate yourself
+        if (user.id === currentUser.id) {
+            return false;
+        }
+        
+        // Admins can deactivate anyone except themselves
+        if (currentUser.role === 'admin') {
+            return true;
+        }
+        
+        // Managers can only deactivate their teacher subordinates
+        if (currentUser.role === 'manager') {
+            return user.role === 'teacher' && user.manager_id === currentUser.id;
+        }
+        
+        return false;
     };
 
     return (
@@ -159,16 +184,29 @@ export default function Edit({ user, availableManagers, currentUser }) {
                                 <InputError className="mt-2" message={errors.total_leave_days} />
                             </div>
 
-                            <div className="flex items-center justify-end space-x-4">
-                                <Link
-                                    href={route('felhasznalok.show', user.id)}
-                                    className="text-gray-600 hover:text-gray-900 text-sm font-medium"
-                                >
-                                    Mégse
-                                </Link>
-                                <PrimaryButton disabled={processing}>
-                                    {processing ? 'Mentés...' : 'Mentés'}
-                                </PrimaryButton>
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    {canDeactivate() && (
+                                        <button
+                                            type="button"
+                                            onClick={handleDeactivate}
+                                            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+                                        >
+                                            Felhasználó deaktiválása
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="flex items-center space-x-4">
+                                    <Link
+                                        href={route('felhasznalok.show', user.id)}
+                                        className="text-gray-600 hover:text-gray-900 text-sm font-medium"
+                                    >
+                                        Mégse
+                                    </Link>
+                                    <PrimaryButton disabled={processing}>
+                                        {processing ? 'Mentés...' : 'Mentés'}
+                                    </PrimaryButton>
+                                </div>
                             </div>
                         </form>
                     </div>

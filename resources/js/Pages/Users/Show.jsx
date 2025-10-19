@@ -1,6 +1,6 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import PageContainer from '@/Components/PageContainer';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 
 export default function Show({ user, currentUser }) {
     const getRoleLabel = (role) => {
@@ -13,12 +13,17 @@ export default function Show({ user, currentUser }) {
     };
 
     const canEditUser = (user) => {
+        // Cannot edit deactivated users
+        if (!user.is_active) {
+            return false;
+        }
+        
         // If it's the current user, they should use profile settings
         if (user.id === currentUser.id) {
             return false; // Redirect to profile instead
         }
         
-        // If current user is admin, can edit all
+        // If current user is admin, can edit all active users
         if (currentUser.role === 'admin') {
             return true;
         }
@@ -30,6 +35,17 @@ export default function Show({ user, currentUser }) {
         
         // Teachers cannot edit anyone else
         return false;
+    };
+
+    const canReactivateUser = (user) => {
+        // Only admins can reactivate users
+        return currentUser.role === 'admin' && !user.is_active;
+    };
+
+    const handleReactivate = () => {
+        if (confirm(`Biztosan újraaktiválni szeretnéd a felhasználót "${user.name}"?`)) {
+            router.post(route('felhasznalok.reactivate', user.id));
+        }
     };
 
     return (
@@ -51,7 +67,14 @@ export default function Show({ user, currentUser }) {
                     <div className="bg-white rounded-lg shadow overflow-hidden">
                         <div className="px-6 py-4 border-b border-gray-200">
                             <div className="flex justify-between items-center">
-                                <h3 className="text-lg font-medium text-gray-900">{user.name}</h3>
+                                <div className="flex items-center space-x-3">
+                                    <h3 className="text-lg font-medium text-gray-900">{user.name}</h3>
+                                    {!user.is_active && (
+                                        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                                            Deaktivált
+                                        </span>
+                                    )}
+                                </div>
                                 <div className="flex space-x-3">
                                     {canEditUser(user) && (
                                         <Link
@@ -61,7 +84,15 @@ export default function Show({ user, currentUser }) {
                                             Szerkesztés
                                         </Link>
                                     )}
-                                    {user.id === currentUser.id && (
+                                    {canReactivateUser(user) && (
+                                        <button
+                                            onClick={handleReactivate}
+                                            className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                                        >
+                                            Újraaktiválás
+                                        </button>
+                                    )}
+                                    {user.id === currentUser.id && user.is_active && (
                                         <Link
                                             href={route('beallitasok.edit')}
                                             className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"

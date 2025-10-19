@@ -57,7 +57,17 @@ export default function Index({ users, currentUser }) {
             <Head title="Felhasználók" />
             <PageContainer>
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 mb-6">Felhasználók kezelése</h1>
+                    <div className="flex justify-between items-center mb-6">
+                        <h1 className="text-2xl font-bold text-gray-900">Felhasználók kezelése</h1>
+                        {currentUser.role === 'admin' && (
+                            <Link
+                                href={route('felhasznalok.deactivated')}
+                                className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+                            >
+                                Deaktivált felhasználók
+                            </Link>
+                        )}
+                    </div>
                     
                     <CreateUserForm users={users} currentUserRole={currentUser.role} />
 

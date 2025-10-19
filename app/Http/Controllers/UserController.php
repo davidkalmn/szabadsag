@@ -19,13 +19,13 @@ class UserController extends Controller
     {
         $currentUser = auth()->user();
         
-        // Filter users based on current user's role
+        // Filter users based on current user's role - only show active users
         if ($currentUser->role === 'admin') {
-            // Admins can see all users
-            $users = User::with('manager')->get();
+            // Admins can see all active users
+            $users = User::active()->with('manager')->get();
         } elseif ($currentUser->role === 'manager') {
-            // Managers can see their subordinates, themselves, and admins (for manager selection)
-            $users = User::with('manager')
+            // Managers can see their active subordinates, themselves, and active admins (for manager selection)
+            $users = User::active()->with('manager')
                 ->where(function($query) use ($currentUser) {
                     $query->where('manager_id', $currentUser->id)
                           ->orWhere('id', $currentUser->id)
@@ -34,7 +34,7 @@ class UserController extends Controller
                 ->get();
         } else {
             // Teachers can only see themselves
-            $users = User::with('manager')->where('id', $currentUser->id)->get();
+            $users = User::active()->with('manager')->where('id', $currentUser->id)->get();
         }
         
         return inertia('Users/Index', [
@@ -106,18 +106,25 @@ class UserController extends Controller
     {
         $currentUser = auth()->user();
         
+        // Check if user is deactivated
+        if (!$user->is_active) {
+            // Only admins can view deactivated users
+            if ($currentUser->role !== 'admin') {
+                abort(403, 'Nincs jogosultságod ennek a felhasználónak a megtekintéséhez.');
+            }
+        }
+        
         // Check if current user is authorized to view this user
         if ($currentUser->role === 'admin') {
-            // Admins can see all users
+            // Admins can see all users (including deactivated ones)
         } elseif ($currentUser->role === 'manager') {
-            // Managers can see their subordinates, themselves, and admins
+            // Managers can see their subordinates and themselves, but NOT admins
             if ($user->id !== $currentUser->id && 
-                $user->manager_id !== $currentUser->id && 
-                $user->role !== 'admin') {
+                $user->manager_id !== $currentUser->id) {
                 abort(403, 'Nincs jogosultságod ennek a felhasználónak a megtekintéséhez.');
             }
         } else {
-            // Teachers can only see themselves
+            // Teachers can only see themselves (only if active)
             if ($user->id !== $currentUser->id) {
                 abort(403, 'Nincs jogosultságod ennek a felhasználónak a megtekintéséhez.');
             }
@@ -138,9 +145,14 @@ class UserController extends Controller
     {
         $currentUser = auth()->user();
         
+        // Check if user is deactivated - prevent editing deactivated users
+        if (!$user->is_active) {
+            abort(403, 'Nincs jogosultságod ennek a felhasználónak a szerkesztéséhez.');
+        }
+        
         // Check if current user is authorized to edit this user
         if ($currentUser->role === 'admin') {
-            // Admins can edit all users
+            // Admins can edit all active users
         } elseif ($currentUser->role === 'manager') {
             // Managers can only edit their subordinates (not other managers or admins)
             if ($user->id === $currentUser->id) {
@@ -174,9 +186,14 @@ class UserController extends Controller
     {
         $currentUser = auth()->user();
         
+        // Check if user is deactivated - prevent updating deactivated users
+        if (!$user->is_active) {
+            abort(403, 'Nincs jogosultságod ennek a felhasználónak a szerkesztéséhez.');
+        }
+        
         // Check if current user is authorized to edit this user
         if ($currentUser->role === 'admin') {
-            // Admins can edit all users
+            // Admins can edit all active users
         } elseif ($currentUser->role === 'manager') {
             // Managers can only edit their subordinates (not other managers or admins)
             if ($user->id === $currentUser->id) {
@@ -341,5 +358,116 @@ class UserController extends Controller
             return redirect()->route('felhasznalok.index')
                 ->with('success', 'Felhasználó sikeresen frissítve! A felhasználó már nem tartozik a te beosztottaid közé.');
         }
+    }
+
+    /**
+     * Display a listing of deactivated users (admin only).
+     */
+    public function deactivated()
+    {
+        $currentUser = auth()->user();
+        
+        // Only admins can access deactivated users
+        if ($currentUser->role !== 'admin') {
+            abort(403, 'Nincs jogosultságod a deaktivált felhasználók megtekintéséhez.');
+        }
+        
+        $deactivatedUsers = User::inactive()->with('manager')->get();
+        
+        return inertia('Users/Deactivated', [
+            'users' => $deactivatedUsers,
+            'currentUser' => $currentUser
+        ]);
+    }
+
+    /**
+     * Deactivate a user (soft delete).
+     */
+    public function deactivate(User $user)
+    {
+        $currentUser = auth()->user();
+        
+        // Check if current user is authorized to deactivate this user
+        if ($currentUser->role === 'admin') {
+            // Admins can deactivate all users except themselves
+            if ($user->id === $currentUser->id) {
+                abort(403, 'Nem tudod saját magadat deaktiválni.');
+            }
+        } elseif ($currentUser->role === 'manager') {
+            // Managers can only deactivate their subordinates (not other managers or admins)
+            if ($user->role !== 'teacher' || $user->manager_id !== $currentUser->id) {
+                abort(403, 'Nincs jogosultságod ennek a felhasználónak a deaktiválásához.');
+            }
+        } else {
+            abort(403, 'Nincs jogosultságod felhasználók deaktiválásához.');
+        }
+
+        // Don't deactivate if already inactive
+        if (!$user->is_active) {
+            return redirect()->back()->with('error', 'Ez a felhasználó már deaktivált.');
+        }
+
+        $user->deactivate();
+
+        // Log the deactivation
+        $this->logActivity(
+            'user_deactivated',
+            "Felhasználó deaktiválva: {$user->name} ({$user->email}) - Szerepkör: " . 
+            ($user->role === 'teacher' ? 'Tanár' : 
+             ($user->role === 'manager' ? 'Menedzser' : 'Admin')),
+            $user
+        );
+
+        // Create notification for the deactivated user
+        $roleText = $currentUser->role === 'admin' ? 'Admin' : 'Menedzser';
+        $this->createNotification(
+            $user->id,
+            'account_deleted',
+            'Fiók deaktiválva',
+            "A fiókodat {$currentUser->name} ({$roleText}) deaktiválta. Kapcsolatfelvételhez fordulj a rendszergazdához."
+        );
+
+        return redirect()->route('felhasznalok.index')
+            ->with('success', "Felhasználó '{$user->name}' sikeresen deaktiválva!");
+    }
+
+    /**
+     * Reactivate a user (admin only).
+     */
+    public function reactivate(User $user)
+    {
+        $currentUser = auth()->user();
+        
+        // Only admins can reactivate users
+        if ($currentUser->role !== 'admin') {
+            abort(403, 'Nincs jogosultságod felhasználók újraaktiválásához.');
+        }
+
+        // Don't reactivate if already active
+        if ($user->is_active) {
+            return redirect()->back()->with('error', 'Ez a felhasználó már aktív.');
+        }
+
+        $user->reactivate();
+
+        // Log the reactivation
+        $this->logActivity(
+            'user_reactivated',
+            "Felhasználó újraaktiválva: {$user->name} ({$user->email}) - Szerepkör: " . 
+            ($user->role === 'teacher' ? 'Tanár' : 
+             ($user->role === 'manager' ? 'Menedzser' : 'Admin')),
+            $user
+        );
+
+        // Create notification for the reactivated user
+        $this->createNotification(
+            $user->id,
+            'user_created',
+            'Fiók újraaktiválva',
+            "A fiókodat {$currentUser->name} (Admin) újraaktiválta. Most már újra be tudsz jelentkezni."
+        );
+
+        return redirect()->route('felhasznalok.deactivated')
+            ->with('success', "Felhasználó '{$user->name}' sikeresen újraaktiválva!");
     }
 }

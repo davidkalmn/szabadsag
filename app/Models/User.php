@@ -24,6 +24,7 @@ class User extends Authenticatable
         'role',
         'manager_id',
         'total_leave_days',
+        'is_active',
     ];
 
     /**
@@ -63,5 +64,37 @@ class User extends Authenticatable
     public function subordinates()
     {
         return $this->hasMany(User::class, 'manager_id');
+    }
+
+    /**
+     * Scope a query to only include active users.
+     */
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
+    }
+
+    /**
+     * Scope a query to only include inactive users.
+     */
+    public function scopeInactive($query)
+    {
+        return $query->where('is_active', false);
+    }
+
+    /**
+     * Deactivate the user (soft delete).
+     */
+    public function deactivate()
+    {
+        $this->update(['is_active' => false]);
+    }
+
+    /**
+     * Reactivate the user.
+     */
+    public function reactivate()
+    {
+        $this->update(['is_active' => true]);
     }
 }

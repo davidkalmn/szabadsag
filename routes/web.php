@@ -22,7 +22,6 @@ Route::middleware('auth')->group(function () {
     // Profil
     Route::get('/beallitasok', [ProfileController::class, 'edit'])->name('beallitasok.edit');
     Route::patch('/beallitasok', [ProfileController::class, 'update'])->name('beallitasok.update');
-    Route::delete('/beallitasok', [ProfileController::class, 'destroy'])->name('beallitasok.destroy');
 
     // --- Szabadságok ---
     Route::prefix('szabadsagok')->name('szabadsag.')->group(function () {
@@ -65,6 +64,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/felhasznalok', [UserController::class, 'store'])
         ->middleware('role:admin,manager')
         ->name('felhasznalok.store');
+    Route::get('/felhasznalok/deactivated', [UserController::class, 'deactivated'])
+        ->middleware('role:admin')
+        ->name('felhasznalok.deactivated');
     Route::get('/felhasznalok/{user}', [UserController::class, 'show'])
         ->middleware('role:admin,manager')
         ->name('felhasznalok.show');
@@ -74,6 +76,12 @@ Route::middleware('auth')->group(function () {
     Route::put('/felhasznalok/{user}', [UserController::class, 'update'])
         ->middleware('role:admin,manager')
         ->name('felhasznalok.update');
+    Route::delete('/felhasznalok/{user}/deactivate', [UserController::class, 'deactivate'])
+        ->middleware('role:admin,manager')
+        ->name('felhasznalok.deactivate');
+    Route::post('/felhasznalok/{user}/reactivate', [UserController::class, 'reactivate'])
+        ->middleware('role:admin')
+        ->name('felhasznalok.reactivate');
 
     // --- Értesítések (minden belépett) ---
     Route::get('/ertesitesek', [NotificationController::class, 'index'])

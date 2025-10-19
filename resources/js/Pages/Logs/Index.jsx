@@ -31,8 +31,10 @@ export default function Index({ logs, currentUser, filters }) {
                 return '👤';
             case 'user_updated':
                 return '✏️';
-            case 'user_deleted':
-                return '🗑️';
+            case 'user_deactivated':
+                return '🚫';
+            case 'user_reactivated':
+                return '✅';
             case 'login':
                 return '🔐';
             case 'logout':
@@ -41,8 +43,6 @@ export default function Index({ logs, currentUser, filters }) {
                 return '👤';
             case 'password_changed':
                 return '🔒';
-            case 'account_deleted':
-                return '🗑️';
             default:
                 return '📝';
         }
@@ -54,8 +54,10 @@ export default function Index({ logs, currentUser, filters }) {
                 return 'text-green-600 bg-green-100';
             case 'user_updated':
                 return 'text-blue-600 bg-blue-100';
-            case 'user_deleted':
+            case 'user_deactivated':
                 return 'text-red-600 bg-red-100';
+            case 'user_reactivated':
+                return 'text-green-600 bg-green-100';
             case 'login':
                 return 'text-indigo-600 bg-indigo-100';
             case 'logout':
@@ -64,8 +66,6 @@ export default function Index({ logs, currentUser, filters }) {
                 return 'text-blue-600 bg-blue-100';
             case 'password_changed':
                 return 'text-yellow-600 bg-yellow-100';
-            case 'account_deleted':
-                return 'text-red-600 bg-red-100';
             default:
                 return 'text-gray-600 bg-gray-100';
         }
@@ -77,8 +77,10 @@ export default function Index({ logs, currentUser, filters }) {
                 return 'Felhasználó létrehozva';
             case 'user_updated':
                 return 'Felhasználó módosítva';
-            case 'user_deleted':
-                return 'Felhasználó törölve';
+            case 'user_deactivated':
+                return 'Felhasználó deaktiválva';
+            case 'user_reactivated':
+                return 'Felhasználó újraaktiválva';
             case 'login':
                 return 'Bejelentkezés';
             case 'logout':
@@ -87,8 +89,6 @@ export default function Index({ logs, currentUser, filters }) {
                 return 'Profil módosítva';
             case 'password_changed':
                 return 'Jelszó módosítva';
-            case 'account_deleted':
-                return 'Fiók törölve';
             default:
                 return action;
         }
@@ -98,12 +98,12 @@ export default function Index({ logs, currentUser, filters }) {
         { value: 'all', label: 'Összes' },
         { value: 'user_created', label: 'Felhasználó létrehozva' },
         { value: 'user_updated', label: 'Felhasználó módosítva' },
-        { value: 'user_deleted', label: 'Felhasználó törölve' },
+        { value: 'user_deactivated', label: 'Felhasználó deaktiválva' },
+        { value: 'user_reactivated', label: 'Felhasználó újraaktiválva' },
         { value: 'login', label: 'Bejelentkezés' },
         { value: 'logout', label: 'Kijelentkezés' },
         { value: 'profile_updated', label: 'Profil módosítva' },
         { value: 'password_changed', label: 'Jelszó módosítva' },
-        { value: 'account_deleted', label: 'Fiók törölve' },
     ];
 
     return (
