@@ -172,7 +172,7 @@ export default function Navbar() {
     const navigationItems = getNavigationItems();
 
     return (
-        <nav className="border-b border-gray-100 bg-white">
+        <nav className="fixed top-0 left-0 right-0 z-50 border-b border-gray-100 bg-white">
             <div className="mx-auto max-w-[1600px] px-3 sm:px-4 lg:px-6">
                 <div className="flex h-16 justify-between">
                     {/* Logo and main navigation */}

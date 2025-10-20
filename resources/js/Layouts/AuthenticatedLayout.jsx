@@ -6,14 +6,14 @@ export default function AuthenticatedLayout({ header, children }) {
             <Navbar />
 
             {header && (
-                <header className="bg-white shadow">
+                <header className="bg-white shadow pt-16">
                     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
                         {header}
                     </div>
                 </header>
             )}
 
-            <main>{children}</main>
+            <main className={header ? '' : 'pt-16'}>{children}</main>
         </div>
     );
 }

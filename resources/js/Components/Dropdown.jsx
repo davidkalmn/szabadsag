@@ -11,9 +11,23 @@ const Dropdown = ({ children }) => {
         setOpen((previousState) => !previousState);
     };
 
+    const handleMouseEnter = () => {
+        setOpen(true);
+    };
+
+    const handleMouseLeave = () => {
+        setOpen(false);
+    };
+
     return (
-        <DropDownContext.Provider value={{ open, setOpen, toggleOpen }}>
-            <div className="relative">{children}</div>
+        <DropDownContext.Provider value={{ open, setOpen, toggleOpen, handleMouseEnter, handleMouseLeave }}>
+            <div 
+                className="relative"
+                onMouseEnter={handleMouseEnter}
+                onMouseLeave={handleMouseLeave}
+            >
+                {children}
+            </div>
         </DropDownContext.Provider>
     );
 };
@@ -22,16 +36,9 @@ const Trigger = ({ children }) => {
     const { open, setOpen, toggleOpen } = useContext(DropDownContext);
 
     return (
-        <>
-            <div onClick={toggleOpen}>{children}</div>
-
-            {open && (
-                <div
-                    className="fixed inset-0 z-40"
-                    onClick={() => setOpen(false)}
-                ></div>
-            )}
-        </>
+        <div onClick={toggleOpen}>
+            {children}
+        </div>
     );
 };
 
