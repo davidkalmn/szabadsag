@@ -18,7 +18,7 @@ export default function Index({ leaves, user }) {
                 className: 'bg-red-100 text-red-800'
             },
             cancelled: {
-                text: 'Érvénytelenített',
+                text: 'Érvénytelenítve',
                 className: 'bg-gray-100 text-gray-800'
             }
         };
@@ -49,12 +49,23 @@ export default function Index({ leaves, user }) {
                                 <span className="text-gray-500 ml-2">(függőben lévő napok már levonva)</span>
                             </p>
                         </div>
-                        <Link
-                            href={route('szabadsag.igenyles')}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
-                        >
-                            Új szabadság igénylés
-                        </Link>
+                        {user.remaining_leaves_current_year > 0 ? (
+                            <Link
+                                href={route('szabadsag.igenyles')}
+                                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+                            >
+                                Új szabadság igénylés
+                            </Link>
+                        ) : (
+                            <button
+                                type="button"
+                                disabled
+                                className="bg-gray-300 text-gray-600 px-4 py-2 rounded-md text-sm font-medium cursor-not-allowed"
+                                title="Nincs elérhető szabadság napod"
+                            >
+                                Új szabadság igénylés
+                            </button>
+                        )}
                     </div>
 
                     <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -71,12 +82,23 @@ export default function Index({ leaves, user }) {
                                     <h3 className="mt-2 text-sm font-medium text-gray-900">Nincs szabadság kérésed</h3>
                                     <p className="mt-1 text-sm text-gray-500">Kezdj el egy új szabadság kérést.</p>
                                     <div className="mt-6">
-                                        <Link
-                                            href={route('szabadsag.igenyles')}
-                                            className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                                        >
-                                            Új szabadság igénylés
-                                        </Link>
+                                        {user.remaining_leaves_current_year > 0 ? (
+                                            <Link
+                                                href={route('szabadsag.igenyles')}
+                                                className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                            >
+                                                Új szabadság igénylés
+                                            </Link>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                disabled
+                                                className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-gray-600 bg-gray-300 cursor-not-allowed"
+                                                title="Nincs elérhető szabadság napod"
+                                            >
+                                                Új szabadság igénylés
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             </div>

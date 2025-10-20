@@ -13,10 +13,21 @@ class NotificationController extends Controller
     public function index(Request $request)
     {
         $currentUser = auth()->user();
-        
-        $notifications = Notification::where('user_id', $currentUser->id)
-            ->orderBy('created_at', 'desc')
-            ->paginate(20);
+        $type = $request->string('type')->toString();
+
+        $query = Notification::where('user_id', $currentUser->id)
+            ->orderBy('created_at', 'desc');
+
+        if (!empty($type)) {
+            // Backward-compat: map legacy types into current ones when filtering
+            if ($type === 'user_deactivated') {
+                $query->whereIn('type', ['user_deactivated', 'account_deleted']);
+            } else {
+                $query->where('type', $type);
+            }
+        }
+
+        $notifications = $query->paginate(20)->withQueryString();
 
         $unreadCount = Notification::where('user_id', $currentUser->id)
             ->whereNull('read_at')
@@ -25,7 +36,8 @@ class NotificationController extends Controller
         return inertia('Notifications/Index', [
             'notifications' => $notifications,
             'currentUser' => $currentUser,
-            'unreadCount' => $unreadCount
+            'unreadCount' => $unreadCount,
+            'selectedType' => $type ?: 'all',
         ]);
     }
 

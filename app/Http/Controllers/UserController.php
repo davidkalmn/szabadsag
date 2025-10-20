@@ -433,7 +433,7 @@ class UserController extends Controller
         $roleText = $currentUser->role === 'admin' ? 'Admin' : 'Menedzser';
         $this->createNotification(
             $user->id,
-            'account_deleted',
+            'user_deactivated',
             'Fiók deaktiválva',
             "A fiókodat {$currentUser->name} ({$roleText}) deaktiválta. Kapcsolatfelvételhez fordulj a rendszergazdához."
         );
@@ -473,7 +473,7 @@ class UserController extends Controller
         // Create notification for the reactivated user
         $this->createNotification(
             $user->id,
-            'user_created',
+            'user_reactivated',
             'Fiók újraaktiválva',
             "A fiókodat {$currentUser->name} (Admin) újraaktiválta. Most már újra be tudsz jelentkezni."
         );

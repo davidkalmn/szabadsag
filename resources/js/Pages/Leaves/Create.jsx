@@ -16,7 +16,14 @@ export default function Create({ user }) {
         if (startDate && endDate) {
             const start = new Date(startDate);
             const end = new Date(endDate);
-            const diffTime = Math.abs(end - start);
+            
+            // Check if end date is before start date
+            if (end < start) {
+                setCalculatedDays(0);
+                return 0;
+            }
+            
+            const diffTime = end - start;
             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 to include both days
             setCalculatedDays(diffDays);
             return diffDays;
@@ -25,9 +32,47 @@ export default function Create({ user }) {
     };
 
     const handleStartDateChange = (e) => {
-        const value = e.target.value;
-        setData('start_date', value);
-        calculateDays(value, data.end_date);
+        const newStart = e.target.value;
+        const { start_date: prevStart, end_date: prevEnd } = data;
+
+        // Compute previous duration if both dates existed and valid
+        let preservedDays = 0;
+        if (prevStart && prevEnd) {
+            const prevStartDate = new Date(prevStart);
+            const prevEndDate = new Date(prevEnd);
+            if (prevEndDate >= prevStartDate) {
+                // inclusive duration in days
+                preservedDays = Math.ceil((prevEndDate - prevStartDate) / (1000 * 60 * 60 * 24)) + 1;
+            }
+        }
+
+        // Update start date first
+        setData('start_date', newStart);
+
+        // If no previous end, just recalc and return
+        if (!prevEnd) {
+            calculateDays(newStart, prevEnd);
+            return;
+        }
+
+        // If new start is after current end, auto-shift end to preserve duration
+        const newStartDate = new Date(newStart);
+        const currentEndDate = new Date(prevEnd);
+
+        if (currentEndDate < newStartDate) {
+            // If we had a valid preservedDays, keep it; else default to 1 day
+            const daysToApply = preservedDays > 0 ? preservedDays : 1;
+
+            const adjustedEnd = new Date(newStartDate);
+            adjustedEnd.setDate(adjustedEnd.getDate() + (daysToApply - 1)); // inclusive
+
+            const adjustedEndStr = adjustedEnd.toISOString().split('T')[0];
+            setData('end_date', adjustedEndStr);
+            calculateDays(newStart, adjustedEndStr);
+        } else {
+            // End still valid, just recalc
+            calculateDays(newStart, prevEnd);
+        }
     };
 
     const handleEndDateChange = (e) => {
@@ -42,6 +87,7 @@ export default function Create({ user }) {
     };
 
     const canRequestLeave = calculatedDays <= user.remaining_leaves_current_year;
+    const hasValidDates = data.start_date && data.end_date && calculatedDays > 0;
 
     return (
         <AuthenticatedLayout>
@@ -57,6 +103,25 @@ export default function Create({ user }) {
                     </div>
 
                     <div className="bg-white rounded-lg shadow p-6">
+                        {user.remaining_leaves_current_year === 0 && (
+                            <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+                                <div className="flex">
+                                    <div className="flex-shrink-0">
+                                        <svg className="h-5 w-5 text-yellow-500" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                        </svg>
+                                    </div>
+                                    <div className="ml-3">
+                                        <h3 className="text-sm font-medium text-yellow-800">
+                                            Nem tudsz új szabadság kérést benyújtani
+                                        </h3>
+                                        <div className="mt-2 text-sm text-yellow-700">
+                                            <p>Elfogytak az elérhető szabadság napjaid erre az évre.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                         {/* General Error Messages */}
                         {(errors.days || errors.dates) && (
                             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-md">
@@ -91,9 +156,10 @@ export default function Create({ user }) {
                                         value={data.start_date}
                                         onChange={handleStartDateChange}
                                         min={new Date().toISOString().split('T')[0]}
+                                        disabled={user.remaining_leaves_current_year === 0}
                                         className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${
                                             errors.start_date ? 'border-red-300' : 'border-gray-300'
-                                        }`}
+                                        } ${user.remaining_leaves_current_year === 0 ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                                         required
                                     />
                                     {errors.start_date && (
@@ -102,7 +168,9 @@ export default function Create({ user }) {
                                 </div>
 
                                 <div>
-                                    <label htmlFor="end_date" className="block text-sm font-medium text-gray-700 mb-2">
+                                    <label htmlFor="end_date" className={`block text-sm font-medium mb-2 ${
+                                        !data.start_date ? 'text-gray-400' : 'text-gray-700'
+                                    }`}>
                                         Befejező dátum *
                                     </label>
                                     <input
@@ -111,9 +179,10 @@ export default function Create({ user }) {
                                         value={data.end_date}
                                         onChange={handleEndDateChange}
                                         min={data.start_date || new Date().toISOString().split('T')[0]}
+                                        disabled={!data.start_date || user.remaining_leaves_current_year === 0}
                                         className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${
                                             errors.end_date ? 'border-red-300' : 'border-gray-300'
-                                        }`}
+                                        } ${(!data.start_date || user.remaining_leaves_current_year === 0) ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                                         required
                                     />
                                     {errors.end_date && (
@@ -122,20 +191,33 @@ export default function Create({ user }) {
                                 </div>
                             </div>
 
-                            {calculatedDays > 0 && (
+                            {data.start_date && data.end_date && user.remaining_leaves_current_year > 0 && (
                                 <div className="mt-4 p-4 bg-gray-50 rounded-md">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-sm font-medium text-gray-700">Kért napok száma:</span>
-                                        <span className={`text-lg font-bold ${
-                                            canRequestLeave ? 'text-green-600' : 'text-red-600'
-                                        }`}>
-                                            {calculatedDays} nap
-                                        </span>
-                                    </div>
-                                    {!canRequestLeave && (
-                                        <p className="mt-2 text-sm text-red-600">
-                                            Nincs elég szabadság napod. Maradék napok: {user.remaining_leaves_current_year}
-                                        </p>
+                                    {calculatedDays > 0 ? (
+                                        <>
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-sm font-medium text-gray-700">Kért napok száma:</span>
+                                                <span className={`text-lg font-bold ${
+                                                    canRequestLeave ? 'text-green-600' : 'text-red-600'
+                                                }`}>
+                                                    {calculatedDays} nap
+                                                </span>
+                                            </div>
+                                            {!canRequestLeave && (
+                                                <p className="mt-2 text-sm text-red-600">
+                                                    Nincs elég szabadság napod. Maradék napok: {user.remaining_leaves_current_year}
+                                                </p>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <div className="flex items-center">
+                                            <svg className="h-5 w-5 text-red-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                            </svg>
+                                            <p className="text-sm text-red-600">
+                                                A befejező dátum nem lehet korábbi, mint a kezdő dátum.
+                                            </p>
+                                        </div>
                                     )}
                                 </div>
                             )}
@@ -150,9 +232,10 @@ export default function Create({ user }) {
                                     onChange={(e) => setData('reason', e.target.value)}
                                     rows={4}
                                     maxLength={1000}
+                                    disabled={user.remaining_leaves_current_year === 0}
                                     className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${
                                         errors.reason ? 'border-red-300' : 'border-gray-300'
-                                    }`}
+                                    } ${user.remaining_leaves_current_year === 0 ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                                     placeholder="Add meg a szabadság kérésed indoklását..."
                                 />
                                 <div className="mt-1 flex justify-between text-sm text-gray-500">
@@ -170,9 +253,9 @@ export default function Create({ user }) {
                                 </a>
                                 <button
                                     type="submit"
-                                    disabled={processing || !canRequestLeave || calculatedDays === 0}
+                                    disabled={processing || !canRequestLeave || !hasValidDates || user.remaining_leaves_current_year === 0}
                                     className={`px-4 py-2 rounded-md text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${
-                                        processing || !canRequestLeave || calculatedDays === 0
+                                        processing || !canRequestLeave || !hasValidDates || user.remaining_leaves_current_year === 0
                                             ? 'bg-gray-400 cursor-not-allowed'
                                             : 'bg-indigo-600 hover:bg-indigo-700'
                                     }`}

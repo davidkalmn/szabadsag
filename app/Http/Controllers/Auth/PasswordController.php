@@ -20,10 +20,19 @@ class PasswordController extends Controller
     {
         $validated = $request->validate([
             'current_password' => ['required', 'current_password'],
-            'password' => ['required', Password::defaults(), 'confirmed'],
+            'password' => ['required', Password::defaults(), 'confirmed', 'different:current_password'],
+        ], [
+            'password.different' => 'Az új jelszó nem egyezhet meg a jelenlegi jelszóval.',
         ]);
 
         $user = $request->user();
+
+        // Extra safety: also compare against the stored hash
+        if (\Illuminate\Support\Facades\Hash::check($validated['password'], $user->password)) {
+            return back()->withErrors([
+                'password' => 'Az új jelszó nem egyezhet meg a jelenlegi jelszóval.',
+            ]);
+        }
         $user->update([
             'password' => Hash::make($validated['password']),
         ]);

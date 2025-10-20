@@ -60,6 +60,9 @@ class LeaveController extends Controller
             'start_date' => 'required|date|after_or_equal:today',
             'end_date' => 'required|date|after_or_equal:start_date',
             'reason' => 'nullable|string|max:1000',
+        ], [
+            'start_date.after_or_equal' => 'A kezdő dátum nem lehet a mai napnál korábbi.',
+            'end_date.after_or_equal' => 'A befejező dátum nem lehet korábbi, mint a kezdő dátum.',
         ]);
 
         // Calculate days requested
@@ -109,6 +112,9 @@ class LeaveController extends Controller
             'status' => 'pending',
         ]);
 
+        // Log the initial submission
+        $leave->logSubmission($user);
+
         // Days are automatically "on hold" through the dynamic calculation
 
         // Log the leave request
@@ -147,7 +153,7 @@ class LeaveController extends Controller
             abort(403, 'Nincs jogosultságod ennek a szabadság kérésnek a megtekintéséhez.');
         }
 
-        $leave->load(['user', 'reviewer']);
+        $leave->load(['user', 'reviewer', 'history.user']);
 
         return inertia('Leaves/Show', [
             'leave' => $leave,

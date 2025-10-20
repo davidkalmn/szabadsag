@@ -49,6 +49,15 @@ class LoginRequest extends FormRequest
             ]);
         }
 
+        // Block login if the user is deactivated
+        $user = Auth::user();
+        if ($user && property_exists($user, 'is_active') ? ! $user->is_active : isset($user->is_active) && ! $user->is_active) {
+            Auth::logout();
+            throw ValidationException::withMessages([
+                'email' => 'A fiókod inaktív, ezért nem tudsz bejelentkezni.',
+            ]);
+        }
+
         RateLimiter::clear($this->throttleKey());
     }
 

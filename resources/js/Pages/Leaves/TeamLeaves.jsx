@@ -31,7 +31,7 @@ export default function TeamLeaves({ leaves, user }) {
                 className: 'bg-red-100 text-red-800'
             },
             cancelled: {
-                text: 'Érvénytelenített',
+                text: 'Érvénytelenítve',
                 className: 'bg-gray-100 text-gray-800'
             }
         };

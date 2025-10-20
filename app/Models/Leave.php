@@ -46,6 +46,14 @@ class Leave extends Model
     }
 
     /**
+     * Get the history of this leave
+     */
+    public function history()
+    {
+        return $this->hasMany(LeaveHistory::class)->orderBy('created_at', 'desc');
+    }
+
+    /**
      * Scope for pending leaves
      */
     public function scopePending($query)
@@ -114,12 +122,17 @@ class Leave extends Model
      */
     public function approve(User $reviewer, string $notes = null): void
     {
+        $oldStatus = $this->status;
+        
         $this->update([
             'status' => 'approved',
             'reviewed_by' => $reviewer->id,
             'reviewed_at' => now(),
             'review_notes' => $notes,
         ]);
+
+        // Log the history
+        $this->logHistory($reviewer, 'approved', $oldStatus, 'approved', $notes);
 
         // Days are automatically handled through dynamic calculation
     }
@@ -129,12 +142,17 @@ class Leave extends Model
      */
     public function reject(User $reviewer, string $notes = null): void
     {
+        $oldStatus = $this->status;
+        
         $this->update([
             'status' => 'rejected',
             'reviewed_by' => $reviewer->id,
             'reviewed_at' => now(),
             'review_notes' => $notes,
         ]);
+
+        // Log the history
+        $this->logHistory($reviewer, 'rejected', $oldStatus, 'rejected', $notes);
 
         // Days are automatically handled through dynamic calculation
     }
@@ -144,12 +162,17 @@ class Leave extends Model
      */
     public function cancel(User $reviewer, string $notes = null): void
     {
+        $oldStatus = $this->status;
+        
         $this->update([
             'status' => 'cancelled',
             'reviewed_by' => $reviewer->id,
             'reviewed_at' => now(),
             'review_notes' => $notes,
         ]);
+
+        // Log the history
+        $this->logHistory($reviewer, 'cancelled', $oldStatus, 'cancelled', $notes);
 
         // Days are automatically handled through dynamic calculation
     }
@@ -180,5 +203,27 @@ class Leave extends Model
             'cancelled' => 'Érvénytelenítve',
             default => 'Ismeretlen',
         };
+    }
+
+    /**
+     * Log a history entry for this leave
+     */
+    public function logHistory(User $user, string $action, string $oldStatus = null, string $newStatus = null, string $notes = null): void
+    {
+        $this->history()->create([
+            'user_id' => $user->id,
+            'action' => $action,
+            'old_status' => $oldStatus,
+            'new_status' => $newStatus,
+            'notes' => $notes,
+        ]);
+    }
+
+    /**
+     * Log the initial submission of a leave
+     */
+    public function logSubmission(User $user): void
+    {
+        $this->logHistory($user, 'submitted', null, 'pending', null);
     }
 }

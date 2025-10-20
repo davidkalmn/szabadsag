@@ -1,5 +1,6 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import PageContainer from '@/Components/PageContainer';
+import LeaveHistory from '@/Components/LeaveHistory';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { useState } from 'react';
 
@@ -59,8 +60,6 @@ export default function Show({ leave, user }) {
         postApproval(route('szabadsag.approve', leave.id), {
             onSuccess: () => {
                 setShowApprovalModal(false);
-                // Redirect to appropriate page based on context
-                window.location.href = getBackRoute();
             }
         });
     };
@@ -69,8 +68,6 @@ export default function Show({ leave, user }) {
         postRejection(route('szabadsag.reject', leave.id), {
             onSuccess: () => {
                 setShowRejectionModal(false);
-                // Redirect to appropriate page based on context
-                window.location.href = getBackRoute();
             }
         });
     };
@@ -79,8 +76,6 @@ export default function Show({ leave, user }) {
         postCancel(route('szabadsag.cancel', leave.id), {
             onSuccess: () => {
                 setShowCancelModal(false);
-                // Redirect to appropriate page based on context
-                window.location.href = getBackRoute();
             }
         });
     };
@@ -191,39 +186,10 @@ export default function Show({ leave, user }) {
                                 </div>
                             </div>
 
-                            {/* Review Details */}
-                            {leave.status !== 'pending' && (
-                                <div className="bg-white rounded-lg shadow mt-6">
-                                    <div className="px-6 py-4 border-b border-gray-200">
-                                        <h3 className="text-lg font-medium text-gray-900">Feldolgozás részletei</h3>
-                                    </div>
-                                    <div className="px-6 py-4 space-y-4">
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700">Feldolgozva</label>
-                                                <p className="mt-1 text-sm text-gray-900">
-                                                    {leave.reviewed_at ? formatDateTime(leave.reviewed_at) : '-'}
-                                                </p>
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700">Feldolgozta</label>
-                                                <p className="mt-1 text-sm text-gray-900">
-                                                    {leave.reviewer ? leave.reviewer.name : '-'}
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        {leave.review_notes && (
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700">
-                                                    {leave.status === 'approved' ? 'Jóváhagyási megjegyzés' : 'Elutasítási indok'}
-                                                </label>
-                                                <p className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{leave.review_notes}</p>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
+                            {/* Leave History */}
+                            <div className="mt-6">
+                                <LeaveHistory history={leave.history} />
+                            </div>
                         </div>
 
                         {/* Actions Sidebar */}
@@ -321,7 +287,9 @@ export default function Show({ leave, user }) {
                                         <span className="text-sm text-gray-600">Státusz:</span>
                                         <span className="text-sm font-medium text-gray-900">
                                             {leave.status === 'pending' ? 'Függőben' : 
-                                             leave.status === 'approved' ? 'Jóváhagyva' : 'Elutasítva'}
+                                             leave.status === 'approved' ? 'Jóváhagyva' : 
+                                             leave.status === 'rejected' ? 'Elutasítva' : 
+                                             leave.status === 'cancelled' ? 'Érvénytelenítve' : 'Ismeretlen'}
                                         </span>
                                     </div>
                                 </div>

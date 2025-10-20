@@ -31,7 +31,7 @@ export default function AllLeaves({ leaves, user }) {
                 className: 'bg-red-100 text-red-800'
             },
             cancelled: {
-                text: 'Érvénytelenített',
+                text: 'Érvénytelenítve',
                 className: 'bg-gray-100 text-gray-800'
             }
         };
@@ -158,7 +158,7 @@ export default function AllLeaves({ leaves, user }) {
                                     </div>
                                 </div>
                                 <div className="ml-4">
-                                    <p className="text-sm font-medium text-gray-500">Érvénytelenített</p>
+                                    <p className="text-sm font-medium text-gray-500">Érvénytelenítve</p>
                                     <p className="text-2xl font-semibold text-gray-900">
                                         {leaves.filter(leave => leave.status === 'cancelled').length}
                                     </p>

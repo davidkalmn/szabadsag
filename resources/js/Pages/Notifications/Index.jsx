@@ -3,8 +3,8 @@ import PageContainer from '@/Components/PageContainer';
 import { Head, router } from '@inertiajs/react';
 import { useState } from 'react';
 
-export default function Index({ notifications, currentUser }) {
-    const [selectedFilter, setSelectedFilter] = useState('all');
+export default function Index({ notifications, currentUser, selectedType }) {
+    const [selectedFilter, setSelectedFilter] = useState(selectedType || 'all');
 
     const handleFilterChange = (type) => {
         setSelectedFilter(type);
@@ -49,18 +49,31 @@ export default function Index({ notifications, currentUser }) {
 
     const getNotificationIcon = (type) => {
         switch (type) {
+            // Leave notifications
+            case 'leave_requested':
+                return '⏳';
+            case 'leave_approved':
+                return '✅';
+            case 'leave_rejected':
+                return '❌';
+            case 'leave_cancelled':
+                return '⛔';
             case 'profile_updated':
                 return '👤';
             case 'password_changed':
                 return '🔒';
-            case 'account_deleted':
-                return '🗑️';
+            case 'account_deleted': // backward compatibility
+                return '🛑';
+            case 'user_deactivated':
+                return '🛑';
             case 'user_created':
                 return '👤';
             case 'user_updated':
                 return '✏️';
             case 'user_deleted':
                 return '🗑️';
+            case 'user_reactivated':
+                return '✅';
             case 'login':
                 return '🔐';
             case 'logout':
@@ -71,42 +84,72 @@ export default function Index({ notifications, currentUser }) {
     };
 
     const getNotificationColor = (type) => {
+        // Match Logs page styling: bg-*100 + text-*600 (no borders)
         switch (type) {
-            case 'profile_updated':
-                return 'bg-blue-50 border-blue-200';
-            case 'password_changed':
-                return 'bg-yellow-50 border-yellow-200';
-            case 'account_deleted':
-                return 'bg-red-50 border-red-200';
+            // Pending
+            case 'leave_requested':
+                return 'bg-yellow-100 text-yellow-600';
+
+            // Positive
+            case 'user_reactivated':
             case 'user_created':
-                return 'bg-green-50 border-green-200';
-            case 'user_updated':
-                return 'bg-blue-50 border-blue-200';
+            case 'leave_approved':
+                return 'bg-green-100 text-green-600';
+
+            // Negative/destructive (except leave_cancelled which is neutral/grey)
+            case 'account_deleted': // backward compatibility
+            case 'user_deactivated':
             case 'user_deleted':
-                return 'bg-red-50 border-red-200';
+            case 'leave_rejected':
+                return 'bg-red-100 text-red-600';
+
+            // Neutral/cancelled
+            case 'leave_cancelled':
+                return 'bg-gray-100 text-gray-800';
+
+            // General updates / info
+            case 'profile_updated':
+            case 'user_updated':
+                return 'bg-blue-100 text-blue-600';
+            case 'password_changed':
+                return 'bg-blue-100 text-blue-600';
+
+            // Auth and misc
             case 'login':
-                return 'bg-indigo-50 border-indigo-200';
+                return 'bg-indigo-100 text-indigo-600';
             case 'logout':
-                return 'bg-gray-50 border-gray-200';
+                return 'bg-gray-100 text-gray-600';
             default:
-                return 'bg-gray-50 border-gray-200';
+                return 'bg-gray-100 text-gray-600';
         }
     };
 
     const getNotificationTypeLabel = (type) => {
         switch (type) {
+            case 'account_deleted': // backward compatibility
+                return 'Fiók deaktiválva';
+            case 'leave_requested':
+                return 'Szabadság kérvényezve';
+            case 'leave_approved':
+                return 'Szabadság jóváhagyva';
+            case 'leave_rejected':
+                return 'Szabadság elutasítva';
+            case 'leave_cancelled':
+                return 'Szabadság érvénytelenítve';
             case 'profile_updated':
                 return 'Profil módosítva';
             case 'password_changed':
                 return 'Jelszó módosítva';
-            case 'account_deleted':
-                return 'Fiók törölve';
+            case 'user_deactivated':
+                return 'Fiók deaktiválva';
             case 'user_created':
                 return 'Felhasználó létrehozva';
             case 'user_updated':
                 return 'Felhasználó módosítva';
             case 'user_deleted':
                 return 'Felhasználó törölve';
+            case 'user_reactivated':
+                return 'Fiók újraaktiválva';
             case 'login':
                 return 'Bejelentkezés';
             case 'logout':
@@ -118,9 +161,23 @@ export default function Index({ notifications, currentUser }) {
 
     const availableTypes = [
         { value: 'all', label: 'Összes' },
-        { value: 'user_updated', label: 'Profil módosítva' },
+        // Leave events
+        { value: 'leave_requested', label: 'Szabadság kérvényezve' },
+        { value: 'leave_approved', label: 'Szabadság jóváhagyva' },
+        { value: 'leave_rejected', label: 'Szabadság elutasítva' },
+        { value: 'leave_cancelled', label: 'Szabadság érvénytelenítve' },
+        // Account/User events
+        { value: 'user_created', label: 'Felhasználó létrehozva' },
+        { value: 'user_updated', label: 'Felhasználó módosítva' },
+        { value: 'user_deleted', label: 'Felhasználó törölve' },
+        { value: 'user_deactivated', label: 'Fiók deaktiválva' },
+        { value: 'user_reactivated', label: 'Fiók újraaktiválva' },
+        // Personal/account
+        { value: 'profile_updated', label: 'Profil módosítva' },
         { value: 'password_changed', label: 'Jelszó módosítva' },
-        { value: 'profile_updated', label: 'Saját profil módosítva' },
+        // Auth
+        { value: 'login', label: 'Bejelentkezés' },
+        { value: 'logout', label: 'Kijelentkezés' },
     ];
 
     const unreadCount = notifications.data.filter(n => !n.read_at).length;
