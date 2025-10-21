@@ -1,6 +1,5 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import PageContainer from '@/Components/PageContainer';
-import CreateUserForm from '@/Components/CreateUserForm';
 import { Head, Link } from '@inertiajs/react';
 
 export default function Index({ users, currentUser }) {
@@ -59,18 +58,24 @@ export default function Index({ users, currentUser }) {
                 <div>
                     <div className="flex justify-between items-center mb-6">
                         <h1 className="text-2xl font-bold text-gray-900">Felhasználók kezelése</h1>
-                        {currentUser.role === 'admin' && (
+                        <div className="flex space-x-3">
+                            {currentUser.role === 'admin' && (
+                                <Link
+                                    href={route('felhasznalok.deactivated')}
+                                    className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+                                >
+                                    Deaktivált felhasználók
+                                </Link>
+                            )}
                             <Link
-                                href={route('felhasznalok.deactivated')}
-                                className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+                                href={route('felhasznalok.create')}
+                                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm font-medium"
                             >
-                                Deaktivált felhasználók
+                                Új felhasználó
                             </Link>
-                        )}
+                        </div>
                     </div>
                     
-                    <CreateUserForm users={users} currentUserRole={currentUser.role} />
-
                     <div className="bg-white rounded-lg shadow overflow-hidden">
                         <div className="px-6 py-4 border-b border-gray-200">
                             <h3 className="text-lg font-medium text-gray-900">Felhasználók listája</h3>

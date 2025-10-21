@@ -181,6 +181,9 @@ export default function AllLeaves({ leaves, user }) {
                                     <thead className="bg-gray-50">
                                         <tr>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                ID
+                                            </th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                                 Alkalmazott
                                             </th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -203,6 +206,9 @@ export default function AllLeaves({ leaves, user }) {
                                     <tbody className="bg-white divide-y divide-gray-200">
                                         {pendingLeaves.map((leave) => (
                                             <tr key={leave.id} className="hover:bg-gray-50">
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                    #{leave.id}
+                                                </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                                     {leave.user.name}
                                                 </td>
@@ -270,6 +276,9 @@ export default function AllLeaves({ leaves, user }) {
                                     <thead className="bg-gray-50">
                                         <tr>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                ID
+                                            </th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                                 Alkalmazott
                                             </th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -295,6 +304,9 @@ export default function AllLeaves({ leaves, user }) {
                                     <tbody className="bg-white divide-y divide-gray-200">
                                         {leaves.map((leave) => (
                                             <tr key={leave.id} className="hover:bg-gray-50">
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                    #{leave.id}
+                                                </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                                     {leave.user.name}
                                                 </td>

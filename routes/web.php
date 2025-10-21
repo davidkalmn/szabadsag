@@ -56,9 +56,9 @@ Route::middleware('auth')->group(function () {
 
         // manager és admin: jóváhagyás/elutasítás/érvénytelenítés
         Route::middleware('role:manager,admin')->group(function () {
-            Route::post('{leave}/approve', [LeaveController::class, 'approve'])->name('approve');
-            Route::post('{leave}/reject', [LeaveController::class, 'reject'])->name('reject');
-            Route::post('{leave}/cancel', [LeaveController::class, 'cancel'])->name('cancel');
+        Route::post('{leave}/jovahagyas', [LeaveController::class, 'approve'])->name('approve');
+        Route::post('{leave}/elutasitas', [LeaveController::class, 'reject'])->name('reject');
+        Route::post('{leave}/ervenytelenites', [LeaveController::class, 'cancel'])->name('cancel');
         });
     });
 
@@ -81,38 +81,41 @@ Route::middleware('auth')->group(function () {
     Route::get('/felhasznalok', [UserController::class, 'index'])
         ->middleware('role:admin,manager')
         ->name('felhasznalok.index');
+    Route::get('/felhasznalok/uj', [UserController::class, 'create'])
+        ->middleware('role:admin,manager')
+        ->name('felhasznalok.create');
     Route::post('/felhasznalok', [UserController::class, 'store'])
         ->middleware('role:admin,manager')
         ->name('felhasznalok.store');
-    Route::get('/felhasznalok/deactivated', [UserController::class, 'deactivated'])
+    Route::get('/felhasznalok/deaktivalt', [UserController::class, 'deactivated'])
         ->middleware('role:admin')
         ->name('felhasznalok.deactivated');
     Route::get('/felhasznalok/{user}', [UserController::class, 'show'])
         ->middleware('role:admin,manager')
         ->name('felhasznalok.show');
-    Route::get('/felhasznalok/{user}/edit', [UserController::class, 'edit'])
+    Route::get('/felhasznalok/{user}/szerkesztes', [UserController::class, 'edit'])
         ->middleware('role:admin,manager')
         ->name('felhasznalok.edit');
     Route::put('/felhasznalok/{user}', [UserController::class, 'update'])
         ->middleware('role:admin,manager')
         ->name('felhasznalok.update');
-    Route::delete('/felhasznalok/{user}/deactivate', [UserController::class, 'deactivate'])
+    Route::delete('/felhasznalok/{user}/deaktivalas', [UserController::class, 'deactivate'])
         ->middleware('role:admin,manager')
         ->name('felhasznalok.deactivate');
-    Route::post('/felhasznalok/{user}/reactivate', [UserController::class, 'reactivate'])
+    Route::post('/felhasznalok/{user}/ujraaktivalas', [UserController::class, 'reactivate'])
         ->middleware('role:admin')
         ->name('felhasznalok.reactivate');
 
     // --- Értesítések (minden belépett) ---
     Route::get('/ertesitesek', [NotificationController::class, 'index'])
         ->name('ertesitesek.index');
-    Route::post('/ertesitesek/{notification}/read', [NotificationController::class, 'markAsRead'])
+    Route::post('/ertesitesek/{notification}/olvasott', [NotificationController::class, 'markAsRead'])
         ->name('ertesitesek.read');
-    Route::post('/ertesitesek/{notification}/unread', [NotificationController::class, 'markAsUnread'])
+    Route::post('/ertesitesek/{notification}/olvasatlan', [NotificationController::class, 'markAsUnread'])
         ->name('ertesitesek.unread');
-    Route::post('/ertesitesek/read-all', [NotificationController::class, 'markAllAsRead'])
+    Route::post('/ertesitesek/összes-olvasott', [NotificationController::class, 'markAllAsRead'])
         ->name('ertesitesek.read-all');
-    Route::get('/ertesitesek/unread-count', [NotificationController::class, 'getUnreadCount'])
+    Route::get('/ertesitesek/olvasatlan-szam', [NotificationController::class, 'getUnreadCount'])
         ->name('ertesitesek.unread-count');
 
     // --- Napló (csak manager és admin) ---

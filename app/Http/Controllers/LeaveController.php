@@ -34,15 +34,46 @@ class LeaveController extends Controller
     /**
      * Show the form for creating a new leave request.
      */
-    public function create()
+    public function create(Request $request)
     {
-        $user = Auth::user();
+        $currentUser = Auth::user();
+        
+        // Check if creating leave for another user
+        if ($request->has('user_id')) {
+            $targetUser = User::findOrFail($request->user_id);
+            
+            // If the user_id refers to the current user, treat it as normal leave request
+            if ($targetUser->id === $currentUser->id) {
+                $user = $currentUser;
+            } else {
+                // Check permissions for creating leave for someone else
+                if ($currentUser->role === 'admin') {
+                    // Admins can create leave for any active user
+                    if (!$targetUser->is_active) {
+                        abort(403, 'Nem lehet szabadság kérelmet létrehozni deaktivált felhasználó számára.');
+                    }
+                } elseif ($currentUser->role === 'manager') {
+                    // Managers can only create leave for their subordinates
+                    if ($targetUser->role !== 'teacher' || $targetUser->manager_id !== $currentUser->id) {
+                        abort(403, 'Nincs jogosultságod szabadságot kiírni ennek a felhasználónak.');
+                    }
+                } else {
+                    // Teachers cannot create leave for others
+                    abort(403, 'Nincs jogosultságod szabadságot kiírni más felhasználók számára.');
+                }
+                
+                $user = $targetUser;
+            }
+        } else {
+            $user = $currentUser;
+        }
         
         // Calculate actual remaining leaves dynamically
         $user->remaining_leaves_current_year = $user->calculateRemainingLeaves();
 
         return inertia('Leaves/Create', [
-            'user' => $user
+            'user' => $user,
+            'isCreatingForOther' => $request->has('user_id') && $user->id !== $currentUser->id
         ]);
     }
 
@@ -51,7 +82,37 @@ class LeaveController extends Controller
      */
     public function store(Request $request)
     {
-        $user = Auth::user();
+        $currentUser = Auth::user();
+        
+        // Check if creating leave for another user
+        if ($request->has('user_id')) {
+            $targetUser = User::findOrFail($request->user_id);
+            
+            // If the user_id refers to the current user, treat it as normal leave request
+            if ($targetUser->id === $currentUser->id) {
+                $user = $currentUser;
+            } else {
+                // Check permissions for creating leave for someone else
+                if ($currentUser->role === 'admin') {
+                    // Admins can create leave for any active user
+                    if (!$targetUser->is_active) {
+                        abort(403, 'Nem lehet szabadság kérelmet létrehozni deaktivált felhasználó számára.');
+                    }
+                } elseif ($currentUser->role === 'manager') {
+                    // Managers can only create leave for their subordinates
+                    if ($targetUser->role !== 'teacher' || $targetUser->manager_id !== $currentUser->id) {
+                        abort(403, 'Nincs jogosultságod szabadságot kiírni ennek a felhasználónak.');
+                    }
+                } else {
+                    // Teachers cannot create leave for others
+                    abort(403, 'Nincs jogosultságod szabadságot kiírni más felhasználók számára.');
+                }
+                
+                $user = $targetUser;
+            }
+        } else {
+            $user = $currentUser;
+        }
         
         // Initialize remaining leaves if not set
         $user->initializeRemainingLeaves();
@@ -103,17 +164,30 @@ class LeaveController extends Controller
             ]);
         }
 
+        // Determine status based on who is creating the leave
+        $status = ($request->has('user_id') && $user->id !== $currentUser->id) ? 'approved' : 'pending';
+        
         $leave = Leave::create([
             'user_id' => $user->id,
             'start_date' => $startDate,
             'end_date' => $endDate,
             'days_requested' => $daysRequested,
             'reason' => $request->reason,
-            'status' => 'pending',
+            'status' => $status,
+            'reviewed_by' => ($status === 'approved') ? $currentUser->id : null,
+            'reviewed_at' => ($status === 'approved') ? now() : null,
         ]);
 
         // Log the initial submission
-        $leave->logSubmission($user);
+        if ($request->has('user_id') && $user->id !== $currentUser->id) {
+            // Log that the leave was created and approved by someone else
+            $leave->logHistory($currentUser, 'created_for_user', null, 'approved', null, [
+                'target_user' => $user->name,
+                'target_user_id' => $user->id
+            ]);
+        } else {
+            $leave->logSubmission($user);
+        }
 
         // Days are automatically "on hold" through the dynamic calculation
 
@@ -135,6 +209,19 @@ class LeaveController extends Controller
             );
         }
 
+        // Redirect based on user role and whether they created leave for someone else
+        if ($request->has('user_id') && $user->id !== $currentUser->id) {
+            // Created leave for someone else - redirect based on role
+            if ($currentUser->role === 'admin') {
+                return redirect()->route('szabadsag.osszes-kerelem')
+                    ->with('success', 'Szabadság sikeresen kiírva!');
+            } elseif ($currentUser->role === 'manager') {
+                return redirect()->route('szabadsag.kerelmek')
+                    ->with('success', 'Szabadság sikeresen kiírva!');
+            }
+        }
+        
+        // Normal leave request - redirect to personal leaves
         return redirect()->route('szabadsag.sajat-kerelmek')
             ->with('success', 'Szabadság kérés sikeresen benyújtva!');
     }
@@ -153,7 +240,7 @@ class LeaveController extends Controller
             abort(403, 'Nincs jogosultságod ennek a szabadság kérésnek a megtekintéséhez.');
         }
 
-        $leave->load(['user', 'reviewer', 'history.user']);
+        $leave->load(['user.manager', 'reviewer', 'history.user']);
 
         return inertia('Leaves/Show', [
             'leave' => $leave,

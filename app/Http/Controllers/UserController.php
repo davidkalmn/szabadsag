@@ -54,6 +54,22 @@ class UserController extends Controller
     }
 
     /**
+     * Show the form for creating a new user.
+     */
+    public function create()
+    {
+        $currentUser = auth()->user();
+        
+        // Get all users for manager selection (admins and managers only)
+        $users = User::active()->with(['manager', 'pendingLeaves'])->get();
+        
+        return inertia('Users/Create', [
+            'users' => $users,
+            'currentUser' => $currentUser
+        ]);
+    }
+
+    /**
      * Store a newly created user.
      */
     public function store(Request $request)
@@ -141,11 +157,22 @@ class UserController extends Controller
             }
         }
         
-        $user->load('manager', 'subordinates');
+        $user->load(['manager', 'subordinates', 'leaves' => function($query) {
+            $query->orderBy('created_at', 'desc');
+        }]);
+        
+        // Calculate remaining leave days using a fresh query
+        $usedLeaveDays = (int) \App\Models\Leave::where('user_id', $user->id)
+            ->where('status', 'approved')
+            ->sum('days_requested');
+        
+        $remainingLeaveDays = (int) $user->total_leave_days - $usedLeaveDays;
         
         return inertia('Users/Show', [
             'user' => $user,
-            'currentUser' => $currentUser
+            'currentUser' => $currentUser,
+            'remainingLeaveDays' => $remainingLeaveDays,
+            'usedLeaveDays' => $usedLeaveDays
         ]);
     }
 

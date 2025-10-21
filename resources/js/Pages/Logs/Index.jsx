@@ -184,6 +184,8 @@ export default function Index({ logs, currentUser, filters, users }) {
                 return '❌';
             case 'leave_cancelled':
                 return '🚫';
+            case 'created_for_user':
+                return '👤';
             default:
                 return '📝';
         }
@@ -215,6 +217,8 @@ export default function Index({ logs, currentUser, filters, users }) {
                 return 'text-red-600 bg-red-100';
             case 'leave_cancelled':
                 return 'text-black bg-gray-200';
+            case 'created_for_user':
+                return 'text-blue-600 bg-blue-100';
             default:
                 return 'text-gray-600 bg-gray-100';
         }
@@ -246,6 +250,8 @@ export default function Index({ logs, currentUser, filters, users }) {
                 return 'Szabadság kérés elutasítva';
             case 'leave_cancelled':
                 return 'Szabadság kérés érvénytelenítve';
+            case 'created_for_user':
+                return 'Szabadság kérés létrehozva másnak';
             default:
                 return action;
         }
@@ -265,6 +271,7 @@ export default function Index({ logs, currentUser, filters, users }) {
         { value: 'leave_approved', label: 'Szabadság kérés jóváhagyva' },
         { value: 'leave_rejected', label: 'Szabadság kérés elutasítva' },
         { value: 'leave_cancelled', label: 'Szabadság kérés érvénytelenítve' },
+        { value: 'created_for_user', label: 'Szabadság kérés létrehozva másnak' },
     ];
 
     return (
@@ -287,7 +294,7 @@ export default function Index({ logs, currentUser, filters, users }) {
                                         id="search"
                                         value={searchTerm}
                                         onChange={(e) => handleSearchChange(e.target.value)}
-                                        placeholder="Keresés tevékenységben, leírásban, felhasználóban..."
+                                        placeholder="Keresés tevékenységben, leírásban, felhasználóban, stb..."
                                         className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
                                     />
                                 </div>

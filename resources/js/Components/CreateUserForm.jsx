@@ -1,11 +1,9 @@
-import { useState } from 'react';
-import { useForm } from '@inertiajs/react';
+import { useForm, Link } from '@inertiajs/react';
 import InputLabel from '@/Components/InputLabel';
 import TextInput from '@/Components/TextInput';
 import PrimaryButton from '@/Components/PrimaryButton';
 
-export default function CreateUserForm({ users, currentUserRole }) {
-    const [showForm, setShowForm] = useState(false);
+export default function CreateUserForm({ users, currentUserRole, currentUser, showForm, setShowForm }) {
     
     const { data, setData, post, processing, errors, reset } = useForm({
         name: '',
@@ -56,16 +54,6 @@ export default function CreateUserForm({ users, currentUserRole }) {
 
     return (
         <div className="mb-6">
-            <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-semibold text-gray-900">Felhasználók</h2>
-                <button
-                    onClick={() => setShowForm(!showForm)}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm font-medium"
-                >
-                    {showForm ? 'Mégse' : 'Új felhasználó'}
-                </button>
-            </div>
-
             {showForm && (
                 <div className="bg-white rounded-lg shadow p-6 mb-6">
                     <h3 className="text-lg font-medium text-gray-900 mb-4">Új felhasználó hozzáadása</h3>

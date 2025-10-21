@@ -39,6 +39,14 @@ export default function LeaveHistory({ history }) {
                         </svg>
                     </div>
                 );
+            case 'created_for_user':
+                return (
+                    <div className="flex-shrink-0 w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                        <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                    </div>
+                );
             default:
                 return (
                     <div className="flex-shrink-0 w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
@@ -60,6 +68,8 @@ export default function LeaveHistory({ history }) {
                 return 'text-red-600';
             case 'cancelled':
                 return 'text-gray-600';
+            case 'created_for_user':
+                return 'text-green-600';
             default:
                 return 'text-gray-600';
         }
@@ -75,6 +85,8 @@ export default function LeaveHistory({ history }) {
                 return 'Kérelem elutasítva';
             case 'cancelled':
                 return 'Kérelem érvénytelenítve';
+            case 'created_for_user':
+                return 'Szabadság kiírva';
             default:
                 return 'Ismeretlen művelet';
         }

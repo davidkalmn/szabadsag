@@ -1,13 +1,14 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import PageContainer from '@/Components/PageContainer';
-import { Head, useForm } from '@inertiajs/react';
+import { Head, useForm, Link } from '@inertiajs/react';
 import { useState } from 'react';
 
-export default function Create({ user }) {
+export default function Create({ user, isCreatingForOther = false }) {
     const { data, setData, post, processing, errors } = useForm({
         start_date: '',
         end_date: '',
         reason: '',
+        user_id: isCreatingForOther ? user.id : null,
     });
 
     const [calculatedDays, setCalculatedDays] = useState(0);
@@ -91,14 +92,27 @@ export default function Create({ user }) {
 
     return (
         <AuthenticatedLayout>
-            <Head title="Új szabadság igénylés" />
+            <Head title={isCreatingForOther ? `Szabadság kiírása - ${user.name}` : "Új szabadság igénylés"} />
             <PageContainer>
                 <div className="max-w-2xl mx-auto">
                     <div className="mb-6">
-                        <h1 className="text-2xl font-bold text-gray-900">Új szabadság igénylés</h1>
+                        <h1 className="text-2xl font-bold text-gray-900">
+                            {isCreatingForOther ? `Szabadság kiírása - ${user.name}` : "Új szabadság igénylés"}
+                        </h1>
                         <p className="mt-2 text-sm text-gray-600">
-                            Elérhető szabadság napok: <span className="font-medium text-green-600">{user.remaining_leaves_current_year}</span>
-                            <span className="text-gray-500 ml-2">(függőben lévő napok már levonva)</span>
+                            {isCreatingForOther ? (
+                                <>
+                                    Szabadság kiírása <Link href={route('felhasznalok.show', user.id)} className="font-medium text-blue-600 hover:text-blue-800">{user.name}</Link> számára
+                                    <br />
+                                    Elérhető szabadság napok: <span className="font-medium text-green-600">{user.remaining_leaves_current_year}</span>
+                                    <span className="text-gray-500 ml-2">(függőben lévő napok már levonva)</span>
+                                </>
+                            ) : (
+                                <>
+                                    Elérhető szabadság napok: <span className="font-medium text-green-600">{user.remaining_leaves_current_year}</span>
+                                    <span className="text-gray-500 ml-2">(függőben lévő napok már levonva)</span>
+                                </>
+                            )}
                         </p>
                     </div>
 
@@ -260,7 +274,7 @@ export default function Create({ user }) {
                                             : 'bg-indigo-600 hover:bg-indigo-700'
                                     }`}
                                 >
-                                    {processing ? 'Benyújtás...' : 'Szabadság igénylése'}
+                                    {processing ? (isCreatingForOther ? 'Kiírás...' : 'Benyújtás...') : (isCreatingForOther ? 'Szabadság kiírása' : 'Szabadság igénylése')}
                                 </button>
                             </div>
                         </form>

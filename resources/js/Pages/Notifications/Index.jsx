@@ -378,7 +378,7 @@ export default function Index({ notifications, currentUser, selectedType, filter
                                         id="search"
                                         value={searchTerm}
                                         onChange={(e) => handleSearchChange(e.target.value)}
-                                        placeholder="Keresés címben, üzenetben..."
+                                        placeholder="Keresés címben, leírásban, stb..."
                                         className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
                                     />
                                 </div>

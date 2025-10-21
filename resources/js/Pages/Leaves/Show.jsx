@@ -151,7 +151,14 @@ export default function Show({ leave, user }) {
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700">Alkalmazott</label>
-                                            <p className="mt-1 text-sm text-gray-900">{leave.user.name}</p>
+                                            <p className="mt-1 text-sm text-gray-900">
+                                                <Link 
+                                                    href={route('felhasznalok.show', leave.user.id)}
+                                                    className="text-indigo-600 hover:text-indigo-900 font-medium"
+                                                >
+                                                    {leave.user.name}
+                                                </Link>
+                                            </p>
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700">Menedzser</label>
