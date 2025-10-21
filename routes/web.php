@@ -108,6 +108,8 @@ Route::middleware('auth')->group(function () {
         ->name('ertesitesek.index');
     Route::post('/ertesitesek/{notification}/read', [NotificationController::class, 'markAsRead'])
         ->name('ertesitesek.read');
+    Route::post('/ertesitesek/{notification}/unread', [NotificationController::class, 'markAsUnread'])
+        ->name('ertesitesek.unread');
     Route::post('/ertesitesek/read-all', [NotificationController::class, 'markAllAsRead'])
         ->name('ertesitesek.read-all');
     Route::get('/ertesitesek/unread-count', [NotificationController::class, 'getUnreadCount'])

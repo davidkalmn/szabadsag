@@ -3,12 +3,163 @@ import PageContainer from '@/Components/PageContainer';
 import { Head, router } from '@inertiajs/react';
 import { useState } from 'react';
 
-export default function Index({ notifications, currentUser, selectedType }) {
-    const [selectedFilter, setSelectedFilter] = useState(selectedType || 'all');
+export default function Index({ notifications, currentUser, selectedType, filters }) {
+    const [selectedFilter, setSelectedFilter] = useState(filters?.type || 'all');
+    const [dateFrom, setDateFrom] = useState(filters?.date_from || '');
+    const [dateTo, setDateTo] = useState(filters?.date_to || '');
+    const [searchTerm, setSearchTerm] = useState(filters?.search || '');
+    const [sortBy, setSortBy] = useState(filters?.sort || 'newest');
 
-    const handleFilterChange = (type) => {
-        setSelectedFilter(type);
-        router.get(route('ertesitesek.index'), { type: type === 'all' ? null : type }, {
+    const handleFilterChange = (filterType, value) => {
+        const newFilters = {
+            type: selectedFilter,
+            date_from: dateFrom,
+            date_to: dateTo,
+            search: searchTerm,
+            sort: sortBy
+        };
+        
+        if (filterType === 'type') {
+            newFilters.type = value;
+            setSelectedFilter(value);
+        } else if (filterType === 'date_from') {
+            newFilters.date_from = value;
+            setDateFrom(value);
+        } else if (filterType === 'date_to') {
+            newFilters.date_to = value;
+            setDateTo(value);
+        } else if (filterType === 'sort') {
+            newFilters.sort = value;
+            setSortBy(value);
+        }
+        
+        // Remove empty values from the query
+        Object.keys(newFilters).forEach(key => {
+            if (newFilters[key] === 'all' || newFilters[key] === '') {
+                delete newFilters[key];
+            }
+        });
+        
+        router.get(route('ertesitesek.index'), newFilters, {
+            preserveState: true,
+            preserveScroll: true,
+        });
+    };
+
+    const handleDateFromChange = (newFromDate) => {
+        const prevFrom = dateFrom;
+        const prevTo = dateTo;
+
+        // If start date is cleared, also clear the end date
+        if (!newFromDate) {
+            setDateFrom('');
+            setDateTo('');
+            
+            // Trigger filter with both dates cleared
+            const newFilters = {
+                type: selectedFilter !== 'all' ? selectedFilter : undefined,
+                user: selectedUser !== 'all' ? selectedUser : undefined,
+                search: searchTerm || undefined
+            };
+            
+            router.get(route('ertesitesek.index'), newFilters, {
+                preserveState: true,
+                preserveScroll: true,
+            });
+            return;
+        }
+
+        // Compute previous duration if both dates existed and valid
+        let preservedDays = 0;
+        if (prevFrom && prevTo) {
+            const prevFromDate = new Date(prevFrom);
+            const prevToDate = new Date(prevTo);
+            if (prevToDate >= prevFromDate) {
+                // inclusive duration in days
+                preservedDays = Math.ceil((prevToDate - prevFromDate) / (1000 * 60 * 60 * 24)) + 1;
+            }
+        }
+
+        // Update from date first
+        setDateFrom(newFromDate);
+
+        // If no previous to date, just trigger filter and return
+        if (!prevTo) {
+            handleFilterChange('date_from', newFromDate);
+            return;
+        }
+
+        // If new from date is after current to date, auto-shift to date to preserve duration
+        const newFromDateObj = new Date(newFromDate);
+        const currentToDateObj = new Date(prevTo);
+
+        if (currentToDateObj < newFromDateObj) {
+            // If we had a valid preservedDays, keep it; else default to 1 day
+            const daysToApply = preservedDays > 0 ? preservedDays : 1;
+
+            const adjustedTo = new Date(newFromDateObj);
+            adjustedTo.setDate(adjustedTo.getDate() + (daysToApply - 1)); // inclusive
+
+            const adjustedToStr = adjustedTo.toISOString().split('T')[0];
+            setDateTo(adjustedToStr);
+            
+            // Trigger filter with both dates
+            const newFilters = {
+                type: selectedFilter !== 'all' ? selectedFilter : undefined,
+                user: selectedUser !== 'all' ? selectedUser : undefined,
+                date_from: newFromDate,
+                date_to: adjustedToStr,
+                search: searchTerm || undefined
+            };
+            
+            router.get(route('ertesitesek.index'), newFilters, {
+                preserveState: true,
+                preserveScroll: true,
+            });
+        } else {
+            // To date still valid, just trigger filter
+            handleFilterChange('date_from', newFromDate);
+        }
+    };
+
+    const handleDateToChange = (newToDate) => {
+        setDateTo(newToDate);
+        handleFilterChange('date_to', newToDate);
+    };
+
+    const handleSearchChange = (value) => {
+        setSearchTerm(value);
+        
+        // Debounce search to avoid too many requests
+        clearTimeout(window.searchTimeout);
+        window.searchTimeout = setTimeout(() => {
+            const newFilters = {
+                type: selectedFilter !== 'all' ? selectedFilter : undefined,
+                user: selectedUser !== 'all' ? selectedUser : undefined,
+                date_from: dateFrom || undefined,
+                date_to: dateTo || undefined,
+                search: value || undefined
+            };
+            
+            router.get(route('ertesitesek.index'), newFilters, {
+                preserveState: true,
+                preserveScroll: true,
+            });
+        }, 300);
+    };
+
+    const clearAllFilters = () => {
+        setSelectedFilter('all');
+        setDateFrom('');
+        setDateTo('');
+        setSearchTerm('');
+        setSortBy('newest');
+        
+        // Clear any pending search timeout
+        clearTimeout(window.searchTimeout);
+        
+        // Navigate to clean URL
+        router.get(route('ertesitesek.index'), {}, {
             preserveState: true,
             preserveScroll: true,
         });
@@ -25,6 +176,17 @@ export default function Index({ notifications, currentUser, selectedType }) {
         });
     };
 
+    const markAsUnread = (notificationId) => {
+        router.post(route('ertesitesek.unread', notificationId), {}, {
+            preserveState: true,
+            preserveScroll: true,
+            onSuccess: () => {
+                // Dispatch custom event to update navbar counter
+                window.dispatchEvent(new CustomEvent('notification-unread'));
+            }
+        });
+    };
+
     const markAllAsRead = () => {
         router.post(route('ertesitesek.read-all'), {}, {
             preserveState: true,
@@ -33,17 +195,6 @@ export default function Index({ notifications, currentUser, selectedType }) {
                 // Dispatch custom event to update navbar counter
                 window.dispatchEvent(new CustomEvent('notifications-read-all'));
             }
-        });
-    };
-
-    const formatDate = (dateString) => {
-        return new Date(dateString).toLocaleString('hu-HU', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit'
         });
     };
 
@@ -160,7 +311,7 @@ export default function Index({ notifications, currentUser, selectedType }) {
     };
 
     const availableTypes = [
-        { value: 'all', label: 'Összes' },
+        { value: 'all', label: 'Összes értesítés' },
         // Leave events
         { value: 'leave_requested', label: 'Szabadság kérvényezve' },
         { value: 'leave_approved', label: 'Szabadság jóváhagyva' },
@@ -180,6 +331,11 @@ export default function Index({ notifications, currentUser, selectedType }) {
         { value: 'logout', label: 'Kijelentkezés' },
     ];
 
+    const availableSorts = [
+        { value: 'newest', label: 'Legújabb először' },
+        { value: 'oldest', label: 'Legrégebbi először' },
+    ];
+
     const unreadCount = notifications.data.filter(n => !n.read_at).length;
 
     return (
@@ -187,27 +343,56 @@ export default function Index({ notifications, currentUser, selectedType }) {
             <Head title="Értesítések" />
             <PageContainer>
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 mb-6">Értesítések</h1>
+                    <div className="flex justify-between items-center mb-6">
+                        <h1 className="text-2xl font-bold text-gray-900">Értesítések</h1>
+                        <div className="flex items-center space-x-4">
+                            {unreadCount > 0 && (
+                                <span className="text-sm text-indigo-600 font-medium">
+                                    {unreadCount} olvasatlan értesítés
+                                </span>
+                            )}
+                            <button
+                                onClick={markAllAsRead}
+                                disabled={unreadCount === 0}
+                                className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                                    unreadCount > 0
+                                        ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                }`}
+                            >
+                                Összes olvasottnak jelöl
+                            </button>
+                        </div>
+                    </div>
                     
                     <div className="bg-white rounded-lg shadow overflow-hidden">
                         <div className="px-6 py-4 border-b border-gray-200">
-                            <div className="flex justify-between items-start">
-                                <div>
-                                    <h3 className="text-lg font-medium text-gray-900">Személyes értesítések</h3>
-                                    <p className="text-sm text-gray-500 mt-1">
-                                        Itt láthatod a saját tevékenységeidről szóló értesítéseket.
-                                        {unreadCount > 0 && (
-                                            <span className="ml-2 text-indigo-600 font-medium">
-                                                {unreadCount} olvasatlan értesítés
-                                            </span>
-                                        )}
-                                    </p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-10 gap-4">
+                                {/* Search Field */}
+                                <div className="lg:col-span-4">
+                                    <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-1">
+                                        Keresés
+                                    </label>
+                                    <input
+                                        type="text"
+                                        id="search"
+                                        value={searchTerm}
+                                        onChange={(e) => handleSearchChange(e.target.value)}
+                                        placeholder="Keresés címben, üzenetben..."
+                                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                                    />
                                 </div>
-                                <div className="flex items-center space-x-3">
+
+                                {/* Type Filter */}
+                                <div className="lg:col-span-2">
+                                    <label htmlFor="type-filter" className="block text-sm font-medium text-gray-700 mb-1">
+                                        Típus
+                                    </label>
                                     <select
+                                        id="type-filter"
                                         value={selectedFilter}
-                                        onChange={(e) => handleFilterChange(e.target.value)}
-                                        className="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                                        onChange={(e) => handleFilterChange('type', e.target.value)}
+                                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
                                     >
                                         {availableTypes.map((type) => (
                                             <option key={type.value} value={type.value}>
@@ -215,23 +400,82 @@ export default function Index({ notifications, currentUser, selectedType }) {
                                             </option>
                                         ))}
                                     </select>
-                                    {unreadCount > 0 && (
-                                        <button
-                                            onClick={markAllAsRead}
-                                            className="text-sm text-indigo-600 hover:text-indigo-900 font-medium"
-                                        >
-                                            Összes olvasottnak jelöl
-                                        </button>
-                                    )}
+                                </div>
+
+                                {/* Date From Filter */}
+                                <div className="lg:col-span-1">
+                                    <label htmlFor="date-from" className="block text-sm font-medium text-gray-700 mb-1">
+                                        Dátumtól
+                                    </label>
+                                    <input
+                                        type="date"
+                                        id="date-from"
+                                        value={dateFrom}
+                                        onChange={(e) => handleDateFromChange(e.target.value)}
+                                        max={new Date().toISOString().split('T')[0]}
+                                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                                    />
+                                </div>
+
+                                {/* Date To Filter */}
+                                <div className="lg:col-span-1">
+                                    <label htmlFor="date-to" className={`block text-sm font-medium mb-1 ${
+                                        !dateFrom ? 'text-gray-400' : 'text-gray-700'
+                                    }`}>
+                                        Dátumig
+                                    </label>
+                                    <input
+                                        type="date"
+                                        id="date-to"
+                                        value={dateTo}
+                                        onChange={(e) => handleDateToChange(e.target.value)}
+                                        min={dateFrom || undefined}
+                                        max={new Date().toISOString().split('T')[0]}
+                                        disabled={!dateFrom}
+                                        className={`w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm ${
+                                            !dateFrom ? 'bg-gray-100 cursor-not-allowed' : ''
+                                        }`}
+                                    />
+                                </div>
+
+                                {/* Sort Filter */}
+                                <div className="lg:col-span-2">
+                                    <label htmlFor="sort-filter" className="block text-sm font-medium text-gray-700 mb-1">
+                                        Rendezés
+                                    </label>
+                                    <select
+                                        id="sort-filter"
+                                        value={sortBy}
+                                        onChange={(e) => handleFilterChange('sort', e.target.value)}
+                                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                                    >
+                                        {availableSorts.map((sort) => (
+                                            <option key={sort.value} value={sort.value}>
+                                                {sort.label}
+                                            </option>
+                                        ))}
+                                    </select>
                                 </div>
                             </div>
+                            
+                            {/* Clear filters button */}
+                            {(selectedFilter !== 'all' || dateFrom || dateTo || searchTerm || sortBy !== 'newest') && (
+                                <div className="mt-4 flex justify-end">
+                                    <button
+                                        onClick={clearAllFilters}
+                                        className="text-sm text-gray-500 hover:text-gray-700 underline"
+                                    >
+                                        Összes szűrő törlése
+                                    </button>
+                                </div>
+                            )}
                         </div>
                         
                         <div className="divide-y divide-gray-200">
                             {notifications.data.map((notification) => (
                                 <div
                                     key={notification.id}
-                                    className={`px-6 py-4 hover:bg-gray-50 transition-colors ${
+                                    className={`px-6 py-4 hover:bg-gray-50 transition-colors group ${
                                         !notification.read_at ? 'bg-blue-50' : ''
                                     }`}
                                 >
@@ -241,7 +485,7 @@ export default function Index({ notifications, currentUser, selectedType }) {
                                                 {getNotificationIcon(notification.type)}
                                             </span>
                                         </div>
-                                        <div className="flex-1 min-w-0">
+                                        <div className="flex-1 min-w-0 relative">
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center space-x-2">
                                                     <h4 className="text-sm font-medium text-gray-900">
@@ -256,23 +500,21 @@ export default function Index({ notifications, currentUser, selectedType }) {
                                                         </span>
                                                     )}
                                                 </div>
-                                                <div className="flex items-center space-x-2">
-                                                    <span className="text-xs text-gray-500">
-                                                        {formatDate(notification.created_at)}
-                                                    </span>
-                                                    {!notification.read_at && (
-                                                        <button
-                                                            onClick={() => markAsRead(notification.id)}
-                                                            className="text-xs text-indigo-600 hover:text-indigo-900 font-medium"
-                                                        >
-                                                            Olvasottnak jelöl
-                                                        </button>
-                                                    )}
-                                                </div>
+                                                <span className="text-xs text-gray-500">
+                                                    {notification.formatted_created_at}
+                                                </span>
                                             </div>
-                                            <p className="mt-1 text-sm text-gray-600">
+                                            <p className="mt-2 text-sm text-gray-600">
                                                 {notification.message}
                                             </p>
+                                            <div className={`mt-2 md:absolute md:bottom-0 md:right-0 md:mt-0 ${notification.read_at ? 'group-hover:block hidden' : 'block'}`}>
+                                                <button
+                                                    onClick={() => notification.read_at ? markAsUnread(notification.id) : markAsRead(notification.id)}
+                                                    className="px-2 py-1 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md transition-colors"
+                                                >
+                                                    {notification.read_at ? 'Olvasatlannak jelöl' : 'Olvasottnak jelöl'}
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

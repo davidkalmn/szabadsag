@@ -3,26 +3,159 @@ import PageContainer from '@/Components/PageContainer';
 import { Head, router } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 
-export default function Index({ logs, currentUser, filters }) {
+export default function Index({ logs, currentUser, filters, users }) {
     const [selectedFilter, setSelectedFilter] = useState(filters?.action || 'all');
+    const [selectedUser, setSelectedUser] = useState(filters?.user || 'all');
+    const [dateFrom, setDateFrom] = useState(filters?.date_from || '');
+    const [dateTo, setDateTo] = useState(filters?.date_to || '');
+    const [searchTerm, setSearchTerm] = useState(filters?.search || '');
+    const [dateSort, setDateSort] = useState(filters?.date_sort || 'desc');
 
-    const handleFilterChange = (action) => {
-        setSelectedFilter(action);
-        router.get(route('naplo.index'), { action: action === 'all' ? null : action }, {
+    const handleFilterChange = (type, value) => {
+        const newFilters = {
+            action: selectedFilter,
+            user: selectedUser,
+            date_from: dateFrom,
+            date_to: dateTo,
+            search: searchTerm,
+            date_sort: dateSort
+        };
+        
+        if (type === 'action') {
+            newFilters.action = value;
+            setSelectedFilter(value);
+        } else if (type === 'user') {
+            newFilters.user = value;
+            setSelectedUser(value);
+        } else if (type === 'date_from') {
+            newFilters.date_from = value;
+            setDateFrom(value);
+        } else if (type === 'date_to') {
+            newFilters.date_to = value;
+            setDateTo(value);
+        } else if (type === 'date_sort') {
+            newFilters.date_sort = value;
+            setDateSort(value);
+        }
+        
+        // Remove empty values from the query
+        Object.keys(newFilters).forEach(key => {
+            if (newFilters[key] === 'all' || newFilters[key] === '') {
+                delete newFilters[key];
+            }
+        });
+        
+        router.get(route('naplo.index'), newFilters, {
             preserveState: true,
             preserveScroll: true,
         });
     };
 
-    const formatDate = (dateString) => {
-        return new Date(dateString).toLocaleString('hu-HU', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit'
-        });
+    const handleDateFromChange = (newFromDate) => {
+        const prevFrom = dateFrom;
+        const prevTo = dateTo;
+
+        // If start date is cleared, also clear the end date
+        if (!newFromDate) {
+            setDateFrom('');
+            setDateTo('');
+            
+            // Trigger filter with both dates cleared
+            const newFilters = {
+                action: selectedFilter !== 'all' ? selectedFilter : undefined,
+                user: selectedUser !== 'all' ? selectedUser : undefined,
+                search: searchTerm || undefined
+            };
+            
+            router.get(route('naplo.index'), newFilters, {
+                preserveState: true,
+                preserveScroll: true,
+            });
+            return;
+        }
+
+        // Compute previous duration if both dates existed and valid
+        let preservedDays = 0;
+        if (prevFrom && prevTo) {
+            const prevFromDate = new Date(prevFrom);
+            const prevToDate = new Date(prevTo);
+            if (prevToDate >= prevFromDate) {
+                // inclusive duration in days
+                preservedDays = Math.ceil((prevToDate - prevFromDate) / (1000 * 60 * 60 * 24)) + 1;
+            }
+        }
+
+        // Update from date first
+        setDateFrom(newFromDate);
+
+        // If no previous to date, just trigger filter and return
+        if (!prevTo) {
+            handleFilterChange('date_from', newFromDate);
+            return;
+        }
+
+        // If new from date is after current to date, auto-shift to date to preserve duration
+        const newFromDateObj = new Date(newFromDate);
+        const currentToDateObj = new Date(prevTo);
+
+        if (currentToDateObj < newFromDateObj) {
+            // If we had a valid preservedDays, keep it; else default to 1 day
+            const daysToApply = preservedDays > 0 ? preservedDays : 1;
+
+            const adjustedTo = new Date(newFromDateObj);
+            adjustedTo.setDate(adjustedTo.getDate() + (daysToApply - 1)); // inclusive
+
+            const adjustedToStr = adjustedTo.toISOString().split('T')[0];
+            setDateTo(adjustedToStr);
+            
+            // Trigger filter with both dates
+            const newFilters = {
+                action: selectedFilter !== 'all' ? selectedFilter : undefined,
+                user: selectedUser !== 'all' ? selectedUser : undefined,
+                date_from: newFromDate,
+                date_to: adjustedToStr,
+                search: searchTerm || undefined
+            };
+            
+            router.get(route('naplo.index'), newFilters, {
+                preserveState: true,
+                preserveScroll: true,
+            });
+        } else {
+            // To date still valid, just trigger filter
+            handleFilterChange('date_from', newFromDate);
+        }
+    };
+
+    const handleDateToChange = (newToDate) => {
+        setDateTo(newToDate);
+        handleFilterChange('date_to', newToDate);
+    };
+
+    const handleDateSort = () => {
+        const newSort = dateSort === 'desc' ? 'asc' : 'desc';
+        handleFilterChange('date_sort', newSort);
+    };
+
+    const handleSearchChange = (value) => {
+        setSearchTerm(value);
+        
+        // Debounce search to avoid too many requests
+        clearTimeout(window.searchTimeout);
+        window.searchTimeout = setTimeout(() => {
+            const newFilters = {
+                action: selectedFilter !== 'all' ? selectedFilter : undefined,
+                user: selectedUser !== 'all' ? selectedUser : undefined,
+                date_from: dateFrom || undefined,
+                date_to: dateTo || undefined,
+                search: value || undefined
+            };
+            
+            router.get(route('naplo.index'), newFilters, {
+                preserveState: true,
+                preserveScroll: true,
+            });
+        }, 300);
     };
 
     const getActionIcon = (action) => {
@@ -43,6 +176,14 @@ export default function Index({ logs, currentUser, filters }) {
                 return '👤';
             case 'password_changed':
                 return '🔒';
+            case 'leave_requested':
+                return '📅';
+            case 'leave_approved':
+                return '✅';
+            case 'leave_rejected':
+                return '❌';
+            case 'leave_cancelled':
+                return '🚫';
             default:
                 return '📝';
         }
@@ -59,13 +200,21 @@ export default function Index({ logs, currentUser, filters }) {
             case 'user_reactivated':
                 return 'text-green-600 bg-green-100';
             case 'login':
-                return 'text-indigo-600 bg-indigo-100';
+                return 'text-gray-400 bg-gray-100';
             case 'logout':
-                return 'text-gray-600 bg-gray-100';
+                return 'text-gray-400 bg-gray-100';
             case 'profile_updated':
                 return 'text-blue-600 bg-blue-100';
             case 'password_changed':
+                return 'text-blue-600 bg-blue-100';
+            case 'leave_requested':
                 return 'text-yellow-600 bg-yellow-100';
+            case 'leave_approved':
+                return 'text-green-600 bg-green-100';
+            case 'leave_rejected':
+                return 'text-red-600 bg-red-100';
+            case 'leave_cancelled':
+                return 'text-black bg-gray-200';
             default:
                 return 'text-gray-600 bg-gray-100';
         }
@@ -89,13 +238,21 @@ export default function Index({ logs, currentUser, filters }) {
                 return 'Profil módosítva';
             case 'password_changed':
                 return 'Jelszó módosítva';
+            case 'leave_requested':
+                return 'Szabadság kérés benyújtva';
+            case 'leave_approved':
+                return 'Szabadság kérés jóváhagyva';
+            case 'leave_rejected':
+                return 'Szabadság kérés elutasítva';
+            case 'leave_cancelled':
+                return 'Szabadság kérés érvénytelenítve';
             default:
                 return action;
         }
     };
 
     const availableActions = [
-        { value: 'all', label: 'Összes' },
+        { value: 'all', label: 'Összes tevékenység' },
         { value: 'user_created', label: 'Felhasználó létrehozva' },
         { value: 'user_updated', label: 'Felhasználó módosítva' },
         { value: 'user_deactivated', label: 'Felhasználó deaktiválva' },
@@ -104,6 +261,10 @@ export default function Index({ logs, currentUser, filters }) {
         { value: 'logout', label: 'Kijelentkezés' },
         { value: 'profile_updated', label: 'Profil módosítva' },
         { value: 'password_changed', label: 'Jelszó módosítva' },
+        { value: 'leave_requested', label: 'Szabadság kérés benyújtva' },
+        { value: 'leave_approved', label: 'Szabadság kérés jóváhagyva' },
+        { value: 'leave_rejected', label: 'Szabadság kérés elutasítva' },
+        { value: 'leave_cancelled', label: 'Szabadság kérés érvénytelenítve' },
     ];
 
     return (
@@ -115,27 +276,32 @@ export default function Index({ logs, currentUser, filters }) {
                     
                     <div className="bg-white rounded-lg shadow overflow-hidden">
                         <div className="px-6 py-4 border-b border-gray-200">
-                            <div className="flex justify-between items-start">
-                                <div>
-                                    <h3 className="text-lg font-medium text-gray-900">Tevékenységek naplója</h3>
-                                    <p className="text-sm text-gray-500 mt-1">
-                                        {currentUser.role === 'admin' 
-                                            ? 'Itt láthatod a rendszerben végrehajtott összes műveletet.'
-                                            : currentUser.role === 'manager'
-                                            ? 'Itt láthatod a saját tevékenységeidet és beosztottaid műveleteit.'
-                                            : 'Itt láthatod a saját tevékenységeidet.'
-                                        }
-                                    </p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-10 gap-4">
+                                {/* Search Field */}
+                                <div className="lg:col-span-4">
+                                    <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-1">
+                                        Keresés
+                                    </label>
+                                    <input
+                                        type="text"
+                                        id="search"
+                                        value={searchTerm}
+                                        onChange={(e) => handleSearchChange(e.target.value)}
+                                        placeholder="Keresés tevékenységben, leírásban, felhasználóban..."
+                                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                                    />
                                 </div>
-                                <div className="flex items-center space-x-2">
-                                    <label htmlFor="action-filter" className="text-sm font-medium text-gray-700">
-                                        Szűrés:
+
+                                {/* Activity Filter */}
+                                <div className="lg:col-span-2">
+                                    <label htmlFor="action-filter" className="block text-sm font-medium text-gray-700 mb-1">
+                                        Tevékenység
                                     </label>
                                     <select
                                         id="action-filter"
                                         value={selectedFilter}
-                                        onChange={(e) => handleFilterChange(e.target.value)}
-                                        className="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                                        onChange={(e) => handleFilterChange('action', e.target.value)}
+                                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
                                     >
                                         {availableActions.map((action) => (
                                             <option key={action.value} value={action.value}>
@@ -143,6 +309,62 @@ export default function Index({ logs, currentUser, filters }) {
                                             </option>
                                         ))}
                                     </select>
+                                </div>
+
+                                {/* User Filter */}
+                                <div className="lg:col-span-2">
+                                    <label htmlFor="user-filter" className="block text-sm font-medium text-gray-700 mb-1">
+                                        Felhasználó
+                                    </label>
+                                    <select
+                                        id="user-filter"
+                                        value={selectedUser}
+                                        onChange={(e) => handleFilterChange('user', e.target.value)}
+                                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                                    >
+                                        <option value="all">Összes felhasználó</option>
+                                        {users && users.map((user) => (
+                                            <option key={user.id} value={user.id}>
+                                                {user.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                {/* Date From Filter */}
+                                <div className="lg:col-span-1">
+                                    <label htmlFor="date-from" className="block text-sm font-medium text-gray-700 mb-1">
+                                        Dátumtól
+                                    </label>
+                                    <input
+                                        type="date"
+                                        id="date-from"
+                                        value={dateFrom}
+                                        onChange={(e) => handleDateFromChange(e.target.value)}
+                                        max={new Date().toISOString().split('T')[0]}
+                                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                                    />
+                                </div>
+
+                                {/* Date To Filter */}
+                                <div className="lg:col-span-1">
+                                    <label htmlFor="date-to" className={`block text-sm font-medium mb-1 ${
+                                        !dateFrom ? 'text-gray-400' : 'text-gray-700'
+                                    }`}>
+                                        Dátumig
+                                    </label>
+                                    <input
+                                        type="date"
+                                        id="date-to"
+                                        value={dateTo}
+                                        onChange={(e) => handleDateToChange(e.target.value)}
+                                        min={dateFrom || undefined}
+                                        max={new Date().toISOString().split('T')[0]}
+                                        disabled={!dateFrom}
+                                        className={`w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm ${
+                                            !dateFrom ? 'bg-gray-100 cursor-not-allowed' : ''
+                                        }`}
+                                    />
                                 </div>
                             </div>
                         </div>
@@ -160,8 +382,21 @@ export default function Index({ logs, currentUser, filters }) {
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Felhasználó
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Dátum
+                                        <th 
+                                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                                            onClick={handleDateSort}
+                                        >
+                                            <div className="flex items-center space-x-2">
+                                                <span>Dátum</span>
+                                                <div className="flex flex-col space-y-0">
+                                                    <span className={`text-[8px] leading-none ${dateSort === 'asc' ? 'text-gray-700' : 'text-gray-400'}`}>
+                                                        ▲
+                                                    </span>
+                                                    <span className={`text-[8px] leading-none ${dateSort === 'desc' ? 'text-gray-700' : 'text-gray-400'}`}>
+                                                        ▼
+                                                    </span>
+                                                </div>
+                                            </div>
                                         </th>
                                     </tr>
                                 </thead>
@@ -185,7 +420,7 @@ export default function Index({ logs, currentUser, filters }) {
                                                 {log.user ? log.user.name : 'Ismeretlen'}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                {formatDate(log.created_at)}
+                                                {log.formatted_created_at || log.created_at}
                                             </td>
                                         </tr>
                                     ))}

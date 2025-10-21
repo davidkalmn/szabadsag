@@ -15,6 +15,11 @@ class LogController extends Controller
     {
         $currentUser = auth()->user();
         $actionFilter = $request->get('action');
+        $userFilter = $request->get('user');
+        $dateFrom = $request->get('date_from');
+        $dateTo = $request->get('date_to');
+        $searchTerm = $request->get('search');
+        $dateSort = $request->get('date_sort', 'desc');
         
         // Start building the query
         $query = ActivityLog::with('user');
@@ -47,13 +52,63 @@ class LogController extends Controller
             $query->where('action', $actionFilter);
         }
         
-        $logs = $query->orderBy('created_at', 'desc')->paginate(50);
+        // Apply user filter if specified
+        if ($userFilter && $userFilter !== 'all') {
+            $query->where('user_id', $userFilter);
+        }
+        
+        // Apply date range filters if specified
+        if ($dateFrom) {
+            $query->whereDate('created_at', '>=', $dateFrom);
+        }
+        
+        if ($dateTo) {
+            $query->whereDate('created_at', '<=', $dateTo);
+        }
+        
+        // Apply search filter if specified
+        if ($searchTerm) {
+            $query->where(function($q) use ($searchTerm) {
+                $q->where('action', 'like', "%{$searchTerm}%")
+                  ->orWhere('description', 'like', "%{$searchTerm}%")
+                  ->orWhereHas('user', function($userQuery) use ($searchTerm) {
+                      $userQuery->where('name', 'like', "%{$searchTerm}%")
+                               ->orWhere('email', 'like', "%{$searchTerm}%");
+                  });
+            });
+        }
+        
+        $logs = $query->orderBy('created_at', $dateSort)->paginate(50);
+        
+        // Format timestamps manually to avoid timezone issues
+        foreach ($logs->items() as $log) {
+            // Ensure we have a Carbon instance and format it
+            $log->formatted_created_at = \Carbon\Carbon::parse($log->created_at)->format('Y. m. d. H:i:s');
+        }
+        
+        // Get users for the filter dropdown based on current user's role
+        $usersQuery = User::select('id', 'name');
+        if ($currentUser->role === 'admin') {
+            $users = $usersQuery->get();
+        } elseif ($currentUser->role === 'manager') {
+            $subordinateIds = User::where('manager_id', $currentUser->id)->pluck('id')->toArray();
+            $subordinateIds[] = $currentUser->id;
+            $users = $usersQuery->whereIn('id', $subordinateIds)->get();
+        } else {
+            $users = collect([$currentUser]);
+        }
 
         return inertia('Logs/Index', [
             'logs' => $logs,
             'currentUser' => $currentUser,
+            'users' => $users,
             'filters' => [
-                'action' => $actionFilter
+                'action' => $actionFilter,
+                'user' => $userFilter,
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
+                'search' => $searchTerm,
+                'date_sort' => $dateSort
             ]
         ]);
     }

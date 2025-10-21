@@ -45,6 +45,14 @@ class Notification extends Model
     }
 
     /**
+     * Mark the notification as unread.
+     */
+    public function markAsUnread()
+    {
+        $this->update(['read_at' => null]);
+    }
+
+    /**
      * Check if the notification is read.
      */
     public function isRead()
