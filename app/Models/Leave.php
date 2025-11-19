@@ -13,6 +13,7 @@ class Leave extends Model
 
     protected $fillable = [
         'user_id',
+        'category',
         'start_date',
         'end_date',
         'days_requested',
@@ -22,6 +23,12 @@ class Leave extends Model
         'reviewed_at',
         'review_notes',
     ];
+
+    // Leave categories
+    const CATEGORY_SZABADSAG = 'szabadsag';
+    const CATEGORY_BETEGSZABADSAG = 'betegszabadsag';
+    const CATEGORY_TAPPENZT = 'tappenzt';
+    const CATEGORY_EGYEB_TAVOLLET = 'egyeb_tavollet';
 
     protected $casts = [
         'start_date' => 'date',
@@ -83,6 +90,60 @@ class Leave extends Model
     public function scopeCurrentYear($query)
     {
         return $query->whereYear('start_date', Carbon::now()->year);
+    }
+
+    /**
+     * Scope for normal leaves (szabadsag category)
+     */
+    public function scopeNormalLeaves($query)
+    {
+        return $query->where('category', self::CATEGORY_SZABADSAG);
+    }
+
+    /**
+     * Scope for sick leaves (betegszabadsag and tappenzt categories)
+     */
+    public function scopeSickLeaves($query)
+    {
+        return $query->whereIn('category', [self::CATEGORY_BETEGSZABADSAG, self::CATEGORY_TAPPENZT]);
+    }
+
+    /**
+     * Scope for other absence (egyeb_tavollet category)
+     */
+    public function scopeOtherAbsence($query)
+    {
+        return $query->where('category', self::CATEGORY_EGYEB_TAVOLLET);
+    }
+
+    /**
+     * Check if this leave counts towards normal leave balance
+     */
+    public function countsTowardsBalance(): bool
+    {
+        return $this->category === self::CATEGORY_SZABADSAG;
+    }
+
+    /**
+     * Check if this category can be requested by regular users
+     */
+    public function canBeRequestedByUser(): bool
+    {
+        return $this->category !== self::CATEGORY_EGYEB_TAVOLLET;
+    }
+
+    /**
+     * Get the category label for display
+     */
+    public function getCategoryLabelAttribute(): string
+    {
+        return match($this->category) {
+            self::CATEGORY_SZABADSAG => 'Szabadság',
+            self::CATEGORY_BETEGSZABADSAG => 'Betegszabadság',
+            self::CATEGORY_TAPPENZT => 'Táppénz',
+            self::CATEGORY_EGYEB_TAVOLLET => 'Egyéb távollét',
+            default => $this->category,
+        };
     }
 
     /**
@@ -228,7 +289,90 @@ class Leave extends Model
     }
 
     /**
+     * Get Hungarian national holidays for a given year
+     * 
+     * @param int $year
+     * @return array Array of Carbon dates
+     */
+    public static function getHungarianHolidays(int $year): array
+    {
+        $holidays = [
+            Carbon::create($year, 1, 1),   // Újév (New Year's Day)
+            Carbon::create($year, 3, 15),  // 1848-as forradalom és szabadságharc emléknapja
+            Carbon::create($year, 5, 1),   // A munka ünnepe (Labour Day)
+            Carbon::create($year, 8, 20),  // Az államalapítás ünnepe (State Foundation Day)
+            Carbon::create($year, 10, 23), // 1956-os forradalom és szabadságharc emléknapja
+            Carbon::create($year, 11, 1),  // Mindenszentek (All Saints' Day)
+            Carbon::create($year, 12, 25), // Karácsony (Christmas)
+            Carbon::create($year, 12, 26), // Karácsony másnapja (Boxing Day)
+        ];
+        
+        return $holidays;
+    }
+
+    /**
+     * Check if a date is a Hungarian national holiday
+     * 
+     * @param Carbon $date
+     * @return bool
+     */
+    public static function isHungarianHoliday(Carbon $date): bool
+    {
+        $holidays = self::getHungarianHolidays($date->year);
+        
+        foreach ($holidays as $holiday) {
+            if ($date->isSameDay($holiday)) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+
+    /**
+     * Check if date range contains only holidays (no weekdays, no weekends)
+     * 
+     * @param Carbon|string $startDate
+     * @param Carbon|string $endDate
+     * @return bool
+     */
+    public static function containsOnlyHolidays($startDate, $endDate): bool
+    {
+        $start = $startDate instanceof Carbon ? $startDate : Carbon::parse($startDate);
+        $end = $endDate instanceof Carbon ? $endDate : Carbon::parse($endDate);
+        
+        if ($start->gt($end)) {
+            return false;
+        }
+        
+        $current = $start->copy();
+        $hasWeekday = false;
+        $hasWeekend = false;
+        
+        while ($current->lte($end)) {
+            $dayOfWeek = $current->dayOfWeek;
+            $isHoliday = self::isHungarianHoliday($current);
+            
+            if ($dayOfWeek >= 1 && $dayOfWeek <= 5) {
+                // It's a weekday
+                if (!$isHoliday) {
+                    $hasWeekday = true;
+                }
+            } else {
+                // It's a weekend
+                $hasWeekend = true;
+            }
+            
+            $current->addDay();
+        }
+        
+        // Only holidays means: no weekdays, and at least one holiday
+        return !$hasWeekday && !$hasWeekend;
+    }
+
+    /**
      * Calculate the number of weekdays (Monday-Friday) between two dates (inclusive)
+     * Excludes weekends and Hungarian national holidays
      * 
      * @param Carbon|string $startDate
      * @param Carbon|string $endDate
@@ -244,15 +388,15 @@ class Leave extends Model
             return 0;
         }
         
-        // Count weekdays (Monday = 1, Friday = 5, Saturday = 6, Sunday = 7)
+        // Count weekdays (Monday-Friday) excluding Hungarian national holidays
         $weekdays = 0;
         $current = $start->copy();
         
         while ($current->lte($end)) {
             $dayOfWeek = $current->dayOfWeek; // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
             // Carbon's dayOfWeek: 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-            // We want Monday (1) through Friday (5)
-            if ($dayOfWeek >= 1 && $dayOfWeek <= 5) {
+            // We want Monday (1) through Friday (5), but exclude holidays
+            if ($dayOfWeek >= 1 && $dayOfWeek <= 5 && !self::isHungarianHoliday($current)) {
                 $weekdays++;
             }
             $current->addDay();

@@ -179,6 +179,22 @@ export default function Show({ leave, user }) {
                                             <p className="mt-1 text-sm text-gray-900">{leave.days_requested} nap</p>
                                         </div>
                                         <div>
+                                            <p className="text-xs font-medium text-gray-500">Kategória</p>
+                                            <p className="mt-1">
+                                                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                                    leave.category === 'szabadsag' ? 'bg-blue-100 text-blue-800' :
+                                                    leave.category === 'betegszabadsag' ? 'bg-orange-100 text-orange-800' :
+                                                    leave.category === 'tappenzt' ? 'bg-red-100 text-red-800' :
+                                                    'bg-purple-100 text-purple-800'
+                                                }`}>
+                                                    {leave.category === 'szabadsag' ? 'Szabadság' :
+                                                     leave.category === 'betegszabadsag' ? 'Betegszabadság' :
+                                                     leave.category === 'tappenzt' ? 'Táppénz' :
+                                                     'Egyéb távollét'}
+                                                </span>
+                                            </p>
+                                        </div>
+                                        <div>
                                             <label className="block text-sm font-medium text-gray-700">Beküldve</label>
                                             <p className="mt-1 text-sm text-gray-900">{formatDateTime(leave.created_at)}</p>
                                         </div>

@@ -48,7 +48,7 @@ class UserController extends Controller
         foreach ($users as $user) {
             $user->initializeRemainingLeaves();
             // Calculate pending leaves days for display
-            $user->pending_leaves_days = $user->pendingLeaves()->sum('days_requested');
+            $user->pending_leaves_days = $user->pendingLeaves()->normalLeaves()->sum('days_requested');
             
             // Calculate actual remaining leaves dynamically
             $user->remaining_leaves_current_year = $user->calculateRemainingLeaves();

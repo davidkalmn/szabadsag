@@ -3,15 +3,47 @@ import PageContainer from '@/Components/PageContainer';
 import { Head, useForm, Link } from '@inertiajs/react';
 import { useState } from 'react';
 
-export default function Create({ user, isCreatingForOther = false }) {
-    const { data, setData, post, processing, errors } = useForm({
+export default function Create({ user, isCreatingForOther = false, currentUser }) {
+    const initialData = {
+        category: 'szabadsag',
         start_date: '',
         end_date: '',
         reason: '',
-        user_id: isCreatingForOther ? user.id : null,
-    });
+    };
+    
+    if (isCreatingForOther) {
+        initialData.user_id = user.id;
+    }
+    
+    const { data, setData, post, processing, errors } = useForm(initialData);
 
     const [calculatedDays, setCalculatedDays] = useState(0);
+
+    // Get Hungarian national holidays for a given year
+    const getHungarianHolidays = (year) => {
+        return [
+            new Date(year, 0, 1),   // January 1 - Újév
+            new Date(year, 2, 15),  // March 15 - 1848-as forradalom
+            new Date(year, 4, 1),   // May 1 - A munka ünnepe
+            new Date(year, 7, 20),  // August 20 - Az államalapítás ünnepe
+            new Date(year, 9, 23),  // October 23 - 1956-os forradalom
+            new Date(year, 10, 1),  // November 1 - Mindenszentek
+            new Date(year, 11, 25), // December 25 - Karácsony
+            new Date(year, 11, 26), // December 26 - Karácsony másnapja
+        ];
+    };
+
+    // Check if a date is a Hungarian national holiday
+    const isHungarianHoliday = (date) => {
+        const year = date.getFullYear();
+        const holidays = getHungarianHolidays(year);
+        
+        return holidays.some(holiday => {
+            return date.getFullYear() === holiday.getFullYear() &&
+                   date.getMonth() === holiday.getMonth() &&
+                   date.getDate() === holiday.getDate();
+        });
+    };
 
     const calculateWeekdays = (startDate, endDate) => {
         if (startDate && endDate) {
@@ -24,14 +56,14 @@ export default function Create({ user, isCreatingForOther = false }) {
                 return 0;
             }
             
-            // Count weekdays (Monday-Friday) only, excluding weekends
+            // Count weekdays (Monday-Friday) only, excluding weekends and Hungarian holidays
             let weekdays = 0;
             const current = new Date(start);
             
             while (current <= end) {
                 const dayOfWeek = current.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-                // Count only Monday (1) through Friday (5)
-                if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+                // Count only Monday (1) through Friday (5), excluding holidays
+                if (dayOfWeek >= 1 && dayOfWeek <= 5 && !isHungarianHoliday(current)) {
                     weekdays++;
                 }
                 current.setDate(current.getDate() + 1);
@@ -122,15 +154,51 @@ export default function Create({ user, isCreatingForOther = false }) {
 
     const submit = (e) => {
         e.preventDefault();
-        post(route('szabadsag.store'));
+        post('/szabadsagok/igenyles');
     };
 
-    const canRequestLeave = calculatedDays <= user.remaining_leaves_current_year;
+    // Check if date range contains only holidays (no weekdays, no weekends)
+    const containsOnlyHolidays = (startDate, endDate) => {
+        if (!startDate || !endDate) return false;
+        
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        
+        if (end < start) return false;
+        
+        let hasWeekday = false;
+        let hasWeekend = false;
+        const current = new Date(start);
+        
+        while (current <= end) {
+            const dayOfWeek = current.getDay();
+            const isHoliday = isHungarianHoliday(current);
+            
+            if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+                // It's a weekday
+                if (!isHoliday) {
+                    hasWeekday = true;
+                }
+            } else {
+                // It's a weekend
+                hasWeekend = true;
+            }
+            
+            current.setDate(current.getDate() + 1);
+        }
+        
+        // Only holidays means: no weekdays, no weekends
+        return !hasWeekday && !hasWeekend;
+    };
+
+    const isNormalLeave = data.category === 'szabadsag';
+    const canRequestLeave = !isNormalLeave || calculatedDays <= user.remaining_leaves_current_year;
     const hasValidDates = data.start_date && data.end_date && calculatedDays > 0;
     
-    // Check if dates are valid but only weekends are selected
-    const isOnlyWeekends = data.start_date && data.end_date && calculatedDays === 0 && 
+    // Check if dates are valid but only weekends/holidays are selected
+    const isOnlyWeekendsOrHolidays = data.start_date && data.end_date && calculatedDays === 0 && 
         new Date(data.end_date) >= new Date(data.start_date);
+    const isOnlyHolidays = isOnlyWeekendsOrHolidays && containsOnlyHolidays(data.start_date, data.end_date);
 
     return (
         <AuthenticatedLayout>
@@ -141,25 +209,34 @@ export default function Create({ user, isCreatingForOther = false }) {
                         <h1 className="text-2xl font-bold text-gray-900">
                             {isCreatingForOther ? `Szabadság kiírása - ${user.name}` : "Új szabadság igénylés"}
                         </h1>
-                        <p className="mt-2 text-sm text-gray-600">
-                            {isCreatingForOther ? (
-                                <>
-                                    Szabadság kiírása <Link href={route('felhasznalok.show', user.id)} className="font-medium text-blue-600 hover:text-blue-800">{user.name}</Link> számára
-                                    <br />
-                                    Elérhető szabadság napok: <span className="font-medium text-green-600">{user.remaining_leaves_current_year}</span>
-                                    <span className="text-gray-500 ml-2">(függőben lévő napok már levonva)</span>
-                                </>
-                            ) : (
-                                <>
-                                    Elérhető szabadság napok: <span className="font-medium text-green-600">{user.remaining_leaves_current_year}</span>
-                                    <span className="text-gray-500 ml-2">(függőben lévő napok már levonva)</span>
-                                </>
-                            )}
-                        </p>
+                        {isNormalLeave && (
+                            <p className="mt-2 text-sm text-gray-600">
+                                {isCreatingForOther ? (
+                                    <>
+                                        Szabadság kiírása <Link href={route('felhasznalok.show', user.id)} className="font-medium text-blue-600 hover:text-blue-800">{user.name}</Link> számára
+                                        <br />
+                                        Elérhető szabadság napok: <span className="font-medium text-green-600">{user.remaining_leaves_current_year}</span>
+                                        <span className="text-gray-500 ml-2">(függőben lévő napok már levonva)</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        Elérhető szabadság napok: <span className="font-medium text-green-600">{user.remaining_leaves_current_year}</span>
+                                        <span className="text-gray-500 ml-2">(függőben lévő napok már levonva)</span>
+                                    </>
+                                )}
+                            </p>
+                        )}
+                        {!isNormalLeave && (
+                            <p className="mt-2 text-sm text-gray-600">
+                                {data.category === 'betegszabadsag' ? 'Betegszabadság igénylése - nem számít bele a rendes szabadság napokba.' :
+                                 data.category === 'tappenzt' ? 'Táppénz igénylése - nem számít bele a rendes szabadság napokba.' :
+                                 'Egyéb távollét - nem számít bele a rendes szabadság napokba.'}
+                            </p>
+                        )}
                     </div>
 
                     <div className="bg-white rounded-lg shadow p-6">
-                        {user.remaining_leaves_current_year === 0 && (
+                        {user.remaining_leaves_current_year === 0 && isNormalLeave && (
                             <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
                                 <div className="flex">
                                     <div className="flex-shrink-0">
@@ -201,6 +278,32 @@ export default function Create({ user, isCreatingForOther = false }) {
                         )}
 
                         <form onSubmit={submit}>
+                            <div className="mb-6">
+                                <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-2">
+                                    Kategória *
+                                </label>
+                                <select
+                                    id="category"
+                                    value={data.category}
+                                    onChange={(e) => setData('category', e.target.value)}
+                                    disabled={user.remaining_leaves_current_year === 0 && isNormalLeave}
+                                    className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${
+                                        errors.category ? 'border-red-300' : 'border-gray-300'
+                                    } ${user.remaining_leaves_current_year === 0 && isNormalLeave ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                                    required
+                                >
+                                    <option value="szabadsag">Szabadság</option>
+                                    <option value="betegszabadsag">Betegszabadság</option>
+                                    <option value="tappenzt">Táppénz</option>
+                                    {isCreatingForOther && currentUser && ['admin', 'manager'].includes(currentUser.role) && (
+                                        <option value="egyeb_tavollet">Egyéb távollét</option>
+                                    )}
+                                </select>
+                                {errors.category && (
+                                    <p className="mt-1 text-sm text-red-600">{errors.category}</p>
+                                )}
+                            </div>
+
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
                                     <label htmlFor="start_date" className="block text-sm font-medium text-gray-700 mb-2">
@@ -212,10 +315,10 @@ export default function Create({ user, isCreatingForOther = false }) {
                                         value={data.start_date}
                                         onChange={handleStartDateChange}
                                         min={new Date().toISOString().split('T')[0]}
-                                        disabled={user.remaining_leaves_current_year === 0}
+                                        disabled={user.remaining_leaves_current_year === 0 && isNormalLeave}
                                         className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${
                                             errors.start_date ? 'border-red-300' : 'border-gray-300'
-                                        } ${user.remaining_leaves_current_year === 0 ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                                        } ${user.remaining_leaves_current_year === 0 && isNormalLeave ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                                         required
                                     />
                                     {errors.start_date && (
@@ -235,7 +338,7 @@ export default function Create({ user, isCreatingForOther = false }) {
                                         value={data.end_date}
                                         onChange={handleEndDateChange}
                                         min={data.start_date || new Date().toISOString().split('T')[0]}
-                                        disabled={!data.start_date || user.remaining_leaves_current_year === 0}
+                                        disabled={!data.start_date || (user.remaining_leaves_current_year === 0 && isNormalLeave)}
                                         className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${
                                             errors.end_date ? 'border-red-300' : 'border-gray-300'
                                         } ${(!data.start_date || user.remaining_leaves_current_year === 0) ? 'bg-gray-100 cursor-not-allowed' : ''}`}
@@ -247,7 +350,7 @@ export default function Create({ user, isCreatingForOther = false }) {
                                 </div>
                             </div>
 
-                            {data.start_date && data.end_date && user.remaining_leaves_current_year > 0 && (
+                            {data.start_date && data.end_date && (user.remaining_leaves_current_year > 0 || !isNormalLeave) && (
                                 <div className="mt-4 p-4 bg-gray-50 rounded-md">
                                     {calculatedDays > 0 ? (
                                         <>
@@ -259,13 +362,22 @@ export default function Create({ user, isCreatingForOther = false }) {
                                                     {calculatedDays} nap
                                                 </span>
                                             </div>
-                                            {!canRequestLeave && (
+                                            {!canRequestLeave && isNormalLeave && (
                                                 <p className="mt-2 text-sm text-red-600">
                                                     Nincs elég szabadság napod. Maradék napok: {user.remaining_leaves_current_year}
                                                 </p>
                                             )}
                                         </>
-                                    ) : isOnlyWeekends ? (
+                                    ) : isOnlyHolidays ? (
+                                        <div className="flex items-center">
+                                            <svg className="h-5 w-5 text-red-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                            </svg>
+                                            <p className="text-sm text-red-600">
+                                                A szabadságigénylés nem lehet csak nemzeti ünnep. Kérjük, valós intervallumot adjon meg.
+                                            </p>
+                                        </div>
+                                    ) : isOnlyWeekendsOrHolidays ? (
                                         <div className="flex items-center">
                                             <svg className="h-5 w-5 text-red-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
                                                 <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
@@ -297,10 +409,10 @@ export default function Create({ user, isCreatingForOther = false }) {
                                     onChange={(e) => setData('reason', e.target.value)}
                                     rows={4}
                                     maxLength={1000}
-                                    disabled={user.remaining_leaves_current_year === 0}
+                                    disabled={user.remaining_leaves_current_year === 0 && isNormalLeave}
                                     className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${
                                         errors.reason ? 'border-red-300' : 'border-gray-300'
-                                    } ${user.remaining_leaves_current_year === 0 ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                                    } ${user.remaining_leaves_current_year === 0 && isNormalLeave ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                                     placeholder="Add meg a szabadság kérésed indoklását..."
                                 />
                                 <div className="mt-1 flex justify-between text-sm text-gray-500">
@@ -318,9 +430,9 @@ export default function Create({ user, isCreatingForOther = false }) {
                                 </a>
                                 <button
                                     type="submit"
-                                    disabled={processing || !canRequestLeave || !hasValidDates || user.remaining_leaves_current_year === 0}
+                                    disabled={processing || !canRequestLeave || !hasValidDates || (user.remaining_leaves_current_year === 0 && isNormalLeave)}
                                     className={`px-4 py-2 rounded-md text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${
-                                        processing || !canRequestLeave || !hasValidDates || user.remaining_leaves_current_year === 0
+                                        processing || !canRequestLeave || !hasValidDates || (user.remaining_leaves_current_year === 0 && isNormalLeave)
                                             ? 'bg-gray-400 cursor-not-allowed'
                                             : 'bg-indigo-600 hover:bg-indigo-700'
                                     }`}

@@ -148,19 +148,19 @@ class User extends Authenticatable
     }
 
     /**
-     * Get total days of pending leaves for this user.
+     * Get total days of pending leaves for this user (only normal szabadsag).
      */
     public function getPendingLeavesDaysAttribute(): int
     {
-        return $this->pendingLeaves()->sum('days_requested');
+        return $this->pendingLeaves()->normalLeaves()->sum('days_requested');
     }
 
     /**
-     * Get total days of approved leaves for this user in current year.
+     * Get total days of approved leaves for this user in current year (only normal szabadsag).
      */
     public function getApprovedLeavesDaysAttribute(): int
     {
-        return $this->approvedLeaves()->currentYear()->sum('days_requested');
+        return $this->approvedLeaves()->normalLeaves()->currentYear()->sum('days_requested');
     }
 
     /**
@@ -188,15 +188,18 @@ class User extends Authenticatable
     }
 
     /**
-     * Calculate actual remaining leaves dynamically
+     * Calculate actual remaining leaves dynamically (only counts normal szabadsag category)
      */
     public function calculateRemainingLeaves(): int
     {
         $approvedLeaves = $this->leaves()
             ->where('status', 'approved')
+            ->where('category', Leave::CATEGORY_SZABADSAG)
             ->currentYear()
             ->sum('days_requested');
-        $pendingLeaves = $this->pendingLeaves()->sum('days_requested');
+        $pendingLeaves = $this->pendingLeaves()
+            ->where('category', Leave::CATEGORY_SZABADSAG)
+            ->sum('days_requested');
         return $this->total_leave_days - $approvedLeaves - $pendingLeaves;
     }
 

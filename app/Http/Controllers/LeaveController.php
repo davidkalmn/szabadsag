@@ -73,7 +73,8 @@ class LeaveController extends Controller
 
         return inertia('Leaves/Create', [
             'user' => $user,
-            'isCreatingForOther' => $request->has('user_id') && $user->id !== $currentUser->id
+            'isCreatingForOther' => $request->has('user_id') && $user->id !== $currentUser->id,
+            'currentUser' => $currentUser
         ]);
     }
 
@@ -118,39 +119,70 @@ class LeaveController extends Controller
         $user->initializeRemainingLeaves();
 
         $request->validate([
+            'category' => 'required|in:szabadsag,betegszabadsag,tappenzt,egyeb_tavollet',
             'start_date' => 'required|date|after_or_equal:today',
             'end_date' => 'required|date|after_or_equal:start_date',
             'reason' => 'nullable|string|max:1000',
         ], [
+            'category.required' => 'A kategória kiválasztása kötelező.',
+            'category.in' => 'Érvénytelen kategória.',
             'start_date.after_or_equal' => 'A kezdő dátum nem lehet a mai napnál korábbi.',
             'end_date.after_or_equal' => 'A befejező dátum nem lehet korábbi, mint a kezdő dátum.',
         ]);
+
+        $category = $request->category;
+
+        // Check if user is trying to request egyeb_tavollet (only admin/manager can create this)
+        if ($category === Leave::CATEGORY_EGYEB_TAVOLLET) {
+            // Only allow if creating for someone else (admin/manager creating for employee)
+            if (!$request->has('user_id') || $user->id === $currentUser->id) {
+                abort(403, 'Az "Egyéb távollét" kategória csak adminisztrátorok és menedzserek által hozható létre más felhasználók számára.');
+            }
+            
+            // Verify the current user has permission (admin or manager)
+            if (!in_array($currentUser->role, ['admin', 'manager'])) {
+                abort(403, 'Nincs jogosultságod "Egyéb távollét" kategóriájú szabadságot létrehozni.');
+            }
+        }
 
         // Calculate days requested (only weekdays, excluding weekends)
         $startDate = Carbon::parse($request->start_date);
         $endDate = Carbon::parse($request->end_date);
         $daysRequested = Leave::calculateWeekdays($startDate, $endDate);
 
-        // Check if only weekends are selected
+        // Check if only weekends/holidays are selected
         if ($daysRequested === 0) {
-            return back()->withErrors([
-                'dates' => 'A szabadságigénylés nem lehet csak hétvége. Kérjük, valós intervallumot adjon meg.'
-            ]);
+            // Check if it's only holidays (no weekends) or weekends/holidays
+            if (Leave::containsOnlyHolidays($startDate, $endDate)) {
+                return back()->withErrors([
+                    'dates' => 'A szabadságigénylés nem lehet csak nemzeti ünnep. Kérjük, valós intervallumot adjon meg.'
+                ]);
+            } else {
+                return back()->withErrors([
+                    'dates' => 'A szabadságigénylés nem lehet csak hétvége. Kérjük, valós intervallumot adjon meg.'
+                ]);
+            }
         }
 
-        // Calculate actual remaining leaves dynamically
-        $actualRemaining = $user->calculateRemainingLeaves();
+        // Only check leave balance for normal szabadsag category
+        // egyeb_tavollet, betegszabadsag, and tappenzt don't count towards balance
+        if ($category === Leave::CATEGORY_SZABADSAG) {
+            // Calculate actual remaining leaves dynamically
+            $actualRemaining = $user->calculateRemainingLeaves();
 
-        // Check if user has enough remaining leaves
-        if ($actualRemaining < $daysRequested) {
-            return back()->withErrors([
-                'days' => "Nincs elég szabadság napod. Elérhető napok: {$actualRemaining}, kért napok: {$daysRequested}"
-            ]);
+            // Check if user has enough remaining leaves
+            if ($actualRemaining < $daysRequested) {
+                return back()->withErrors([
+                    'days' => "Nincs elég szabadság napod. Elérhető napok: {$actualRemaining}, kért napok: {$daysRequested}"
+                ]);
+            }
         }
 
-        // Check for overlapping leave requests
+        // Check for overlapping leave requests (only for same category)
+        // Exclude rejected and cancelled leaves from overlap check
         $overlappingLeave = $user->leaves()
-            ->where('status', '!=', 'rejected')
+            ->where('category', $category)
+            ->whereNotIn('status', ['rejected', 'cancelled'])
             ->where(function($query) use ($startDate, $endDate) {
                 $query->whereBetween('start_date', [$startDate, $endDate])
                       ->orWhereBetween('end_date', [$startDate, $endDate])
@@ -166,8 +198,11 @@ class LeaveController extends Controller
             $overlappingEnd = Carbon::parse($overlappingLeave->end_date)->format('Y-m-d');
             $overlappingStatus = $overlappingLeave->status === 'pending' ? 'függőben lévő' : 'jóváhagyott';
             
+            // Adjust message based on who is creating the leave
+            $userName = ($user->id === $currentUser->id) ? 'kérésed' : "{$user->name} kérése";
+            
             return back()->withErrors([
-                'dates' => "Már van egy {$overlappingStatus} szabadság kérésed ebben az időszakban ({$overlappingStart} - {$overlappingEnd}). Kérjük, válassz más dátumokat."
+                'dates' => "Már van egy {$overlappingStatus} szabadság {$userName} ebben az időszakban ({$overlappingStart} - {$overlappingEnd}). Kérjük, válassz más dátumokat."
             ]);
         }
 
@@ -176,6 +211,7 @@ class LeaveController extends Controller
         
         $leave = Leave::create([
             'user_id' => $user->id,
+            'category' => $category,
             'start_date' => $startDate,
             'end_date' => $endDate,
             'days_requested' => $daysRequested,
