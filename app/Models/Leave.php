@@ -226,4 +226,38 @@ class Leave extends Model
     {
         $this->logHistory($user, 'submitted', null, 'pending', null);
     }
+
+    /**
+     * Calculate the number of weekdays (Monday-Friday) between two dates (inclusive)
+     * 
+     * @param Carbon|string $startDate
+     * @param Carbon|string $endDate
+     * @return int
+     */
+    public static function calculateWeekdays($startDate, $endDate): int
+    {
+        $start = $startDate instanceof Carbon ? $startDate : Carbon::parse($startDate);
+        $end = $endDate instanceof Carbon ? $endDate : Carbon::parse($endDate);
+        
+        // Ensure start is before or equal to end
+        if ($start->gt($end)) {
+            return 0;
+        }
+        
+        // Count weekdays (Monday = 1, Friday = 5, Saturday = 6, Sunday = 7)
+        $weekdays = 0;
+        $current = $start->copy();
+        
+        while ($current->lte($end)) {
+            $dayOfWeek = $current->dayOfWeek; // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+            // Carbon's dayOfWeek: 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+            // We want Monday (1) through Friday (5)
+            if ($dayOfWeek >= 1 && $dayOfWeek <= 5) {
+                $weekdays++;
+            }
+            $current->addDay();
+        }
+        
+        return $weekdays;
+    }
 }

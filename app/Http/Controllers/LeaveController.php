@@ -126,10 +126,17 @@ class LeaveController extends Controller
             'end_date.after_or_equal' => 'A befejező dátum nem lehet korábbi, mint a kezdő dátum.',
         ]);
 
-        // Calculate days requested
+        // Calculate days requested (only weekdays, excluding weekends)
         $startDate = Carbon::parse($request->start_date);
         $endDate = Carbon::parse($request->end_date);
-        $daysRequested = $startDate->diffInDays($endDate) + 1; // +1 to include both start and end days
+        $daysRequested = Leave::calculateWeekdays($startDate, $endDate);
+
+        // Check if only weekends are selected
+        if ($daysRequested === 0) {
+            return back()->withErrors([
+                'dates' => 'A szabadságigénylés nem lehet csak hétvége. Kérjük, valós intervallumot adjon meg.'
+            ]);
+        }
 
         // Calculate actual remaining leaves dynamically
         $actualRemaining = $user->calculateRemainingLeaves();

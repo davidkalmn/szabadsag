@@ -15,27 +15,34 @@ class UserController extends Controller
     /**
      * Display a listing of users.
      */
-    public function index()
+    public function index(Request $request)
     {
         $currentUser = auth()->user();
+        $searchTerm = $request->get('search');
         
         // Filter users based on current user's role - only show active users
         if ($currentUser->role === 'admin') {
             // Admins can see all active users
-            $users = User::active()->with(['manager', 'pendingLeaves'])->get();
+            $query = User::active()->with(['manager', 'pendingLeaves']);
         } elseif ($currentUser->role === 'manager') {
             // Managers can see their active subordinates, themselves, and active admins (for manager selection)
-            $users = User::active()->with(['manager', 'pendingLeaves'])
-                ->where(function($query) use ($currentUser) {
-                    $query->where('manager_id', $currentUser->id)
-                          ->orWhere('id', $currentUser->id)
-                          ->orWhere('role', 'admin');
-                })
-                ->get();
+            $query = User::active()->with(['manager', 'pendingLeaves'])
+                ->where(function($q) use ($currentUser) {
+                    $q->where('manager_id', $currentUser->id)
+                      ->orWhere('id', $currentUser->id)
+                      ->orWhere('role', 'admin');
+                });
         } else {
             // Teachers can only see themselves
-            $users = User::active()->with(['manager', 'pendingLeaves'])->where('id', $currentUser->id)->get();
+            $query = User::active()->with(['manager', 'pendingLeaves'])->where('id', $currentUser->id);
         }
+
+        // Apply search filter if specified
+        if ($searchTerm) {
+            $query->where('name', 'like', "%{$searchTerm}%");
+        }
+
+        $users = $query->get();
 
         // Initialize remaining leaves for users who don't have it set and calculate pending leaves days
         foreach ($users as $user) {
@@ -49,7 +56,10 @@ class UserController extends Controller
         
         return inertia('Users/Index', [
             'users' => $users,
-            'currentUser' => $currentUser
+            'currentUser' => $currentUser,
+            'filters' => [
+                'search' => $searchTerm
+            ]
         ]);
     }
 

@@ -1,8 +1,27 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import PageContainer from '@/Components/PageContainer';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
+import { useState } from 'react';
 
-export default function Index({ users, currentUser }) {
+export default function Index({ users, currentUser, filters }) {
+    const [searchTerm, setSearchTerm] = useState(filters?.search || '');
+
+    const handleSearchChange = (value) => {
+        setSearchTerm(value);
+        
+        // Debounce search to avoid too many requests
+        clearTimeout(window.searchTimeout);
+        window.searchTimeout = setTimeout(() => {
+            const newFilters = {
+                search: value || undefined
+            };
+            
+            router.get(route('felhasznalok.index'), newFilters, {
+                preserveState: true,
+                preserveScroll: true,
+            });
+        }, 300);
+    };
     const getRoleLabel = (role) => {
         switch (role) {
             case 'teacher': return 'Tanár';
@@ -78,7 +97,22 @@ export default function Index({ users, currentUser }) {
                     
                     <div className="bg-white rounded-lg shadow overflow-hidden">
                         <div className="px-6 py-4 border-b border-gray-200">
-                            <h3 className="text-lg font-medium text-gray-900">Felhasználók listája</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-10 gap-4">
+                                {/* Search Field */}
+                                <div className="lg:col-span-4">
+                                    <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-1">
+                                        Keresés
+                                    </label>
+                                    <input
+                                        type="text"
+                                        id="search"
+                                        value={searchTerm}
+                                        onChange={(e) => handleSearchChange(e.target.value)}
+                                        placeholder="Keresés név szerint..."
+                                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                                    />
+                                </div>
+                            </div>
                         </div>
                         
                         <div className="overflow-x-auto">

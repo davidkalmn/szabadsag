@@ -13,7 +13,7 @@ export default function Create({ user, isCreatingForOther = false }) {
 
     const [calculatedDays, setCalculatedDays] = useState(0);
 
-    const calculateDays = (startDate, endDate) => {
+    const calculateWeekdays = (startDate, endDate) => {
         if (startDate && endDate) {
             const start = new Date(startDate);
             const end = new Date(endDate);
@@ -24,27 +24,59 @@ export default function Create({ user, isCreatingForOther = false }) {
                 return 0;
             }
             
-            const diffTime = end - start;
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 to include both days
-            setCalculatedDays(diffDays);
-            return diffDays;
+            // Count weekdays (Monday-Friday) only, excluding weekends
+            let weekdays = 0;
+            const current = new Date(start);
+            
+            while (current <= end) {
+                const dayOfWeek = current.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+                // Count only Monday (1) through Friday (5)
+                if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+                    weekdays++;
+                }
+                current.setDate(current.getDate() + 1);
+            }
+            
+            setCalculatedDays(weekdays);
+            return weekdays;
         }
         return 0;
+    };
+
+    const calculateDays = calculateWeekdays;
+
+    // Find end date that gives us the specified number of weekdays starting from startDate
+    const findEndDateForWeekdays = (startDate, targetWeekdays) => {
+        if (!startDate || targetWeekdays <= 0) {
+            return null;
+        }
+        
+        const start = new Date(startDate);
+        let weekdays = 0;
+        const current = new Date(start);
+        
+        // Count weekdays until we reach the target
+        while (weekdays < targetWeekdays) {
+            const dayOfWeek = current.getDay();
+            if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+                weekdays++;
+            }
+            if (weekdays < targetWeekdays) {
+                current.setDate(current.getDate() + 1);
+            }
+        }
+        
+        return current.toISOString().split('T')[0];
     };
 
     const handleStartDateChange = (e) => {
         const newStart = e.target.value;
         const { start_date: prevStart, end_date: prevEnd } = data;
 
-        // Compute previous duration if both dates existed and valid
-        let preservedDays = 0;
+        // Compute previous duration if both dates existed and valid (weekdays only)
+        let preservedWeekdays = 0;
         if (prevStart && prevEnd) {
-            const prevStartDate = new Date(prevStart);
-            const prevEndDate = new Date(prevEnd);
-            if (prevEndDate >= prevStartDate) {
-                // inclusive duration in days
-                preservedDays = Math.ceil((prevEndDate - prevStartDate) / (1000 * 60 * 60 * 24)) + 1;
-            }
+            preservedWeekdays = calculateWeekdays(prevStart, prevEnd);
         }
 
         // Update start date first
@@ -56,20 +88,26 @@ export default function Create({ user, isCreatingForOther = false }) {
             return;
         }
 
-        // If new start is after current end, auto-shift end to preserve duration
+        // If new start is after current end, auto-shift end to preserve weekday count
         const newStartDate = new Date(newStart);
         const currentEndDate = new Date(prevEnd);
 
         if (currentEndDate < newStartDate) {
-            // If we had a valid preservedDays, keep it; else default to 1 day
-            const daysToApply = preservedDays > 0 ? preservedDays : 1;
-
-            const adjustedEnd = new Date(newStartDate);
-            adjustedEnd.setDate(adjustedEnd.getDate() + (daysToApply - 1)); // inclusive
-
-            const adjustedEndStr = adjustedEnd.toISOString().split('T')[0];
-            setData('end_date', adjustedEndStr);
-            calculateDays(newStart, adjustedEndStr);
+            // If we had a valid preservedWeekdays, find end date with same weekday count
+            if (preservedWeekdays > 0) {
+                const adjustedEndStr = findEndDateForWeekdays(newStart, preservedWeekdays);
+                if (adjustedEndStr) {
+                    setData('end_date', adjustedEndStr);
+                    calculateDays(newStart, adjustedEndStr);
+                    return;
+                }
+            }
+            // Default to 1 weekday if no previous duration
+            const defaultEndStr = findEndDateForWeekdays(newStart, 1);
+            if (defaultEndStr) {
+                setData('end_date', defaultEndStr);
+                calculateDays(newStart, defaultEndStr);
+            }
         } else {
             // End still valid, just recalc
             calculateDays(newStart, prevEnd);
@@ -89,6 +127,10 @@ export default function Create({ user, isCreatingForOther = false }) {
 
     const canRequestLeave = calculatedDays <= user.remaining_leaves_current_year;
     const hasValidDates = data.start_date && data.end_date && calculatedDays > 0;
+    
+    // Check if dates are valid but only weekends are selected
+    const isOnlyWeekends = data.start_date && data.end_date && calculatedDays === 0 && 
+        new Date(data.end_date) >= new Date(data.start_date);
 
     return (
         <AuthenticatedLayout>
@@ -223,6 +265,15 @@ export default function Create({ user, isCreatingForOther = false }) {
                                                 </p>
                                             )}
                                         </>
+                                    ) : isOnlyWeekends ? (
+                                        <div className="flex items-center">
+                                            <svg className="h-5 w-5 text-red-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                            </svg>
+                                            <p className="text-sm text-red-600">
+                                                A szabadságigénylés nem lehet csak hétvége. Kérjük, valós intervallumot adjon meg.
+                                            </p>
+                                        </div>
                                     ) : (
                                         <div className="flex items-center">
                                             <svg className="h-5 w-5 text-red-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
