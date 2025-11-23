@@ -15,6 +15,126 @@ class LeaveController extends Controller
     use LogsActivity, CreatesNotifications;
 
     /**
+     * Get all leaves with statistics (shared method for dashboard)
+     * 
+     * @return array ['leaves' => Collection, 'statistics' => array]
+     */
+    public static function getAllLeavesWithStatistics()
+    {
+        $allLeaves = Leave::with(['user.manager', 'reviewer'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+        
+        // Calculate statistics from all leaves
+        $statistics = [
+            'pending' => $allLeaves->where('status', 'pending')->count(),
+            'approved' => $allLeaves->where('status', 'approved')->count(),
+            'rejected' => $allLeaves->where('status', 'rejected')->count(),
+            'cancelled' => $allLeaves->where('status', 'cancelled')->count(),
+        ];
+        
+        return [
+            'leaves' => $allLeaves,
+            'statistics' => $statistics,
+        ];
+    }
+
+    /**
+     * Get calendar leaves (approved leaves formatted for FullCalendar)
+     * 
+     * @param \App\Models\User|null $user Optional user for filtering (manager sees team, teacher sees own only)
+     * @return array
+     */
+    public static function getCalendarLeaves($user = null)
+    {
+        $query = Leave::with(['user.manager', 'reviewer'])
+            ->where('status', 'approved');
+        
+        // If user is a manager, filter to team only
+        if ($user && $user->role === 'manager') {
+            $query->whereHas('user', function($q) use ($user) {
+                $q->where('manager_id', $user->id);
+            });
+        } elseif ($user && $user->role === 'teacher') {
+            // Teachers see only their own leaves
+            $query->where('user_id', $user->id);
+        }
+        
+        $allLeaves = $query->orderBy('start_date', 'asc')->get();
+        
+        return $allLeaves->map(function ($leave) {
+            return [
+                'id' => $leave->id,
+                'user_id' => $leave->user_id,
+                'user_name' => $leave->user->name ?? '',
+                'user' => ['name' => $leave->user->name ?? ''],
+                'category' => $leave->category,
+                'start_date' => $leave->start_date->format('Y-m-d'),
+                'end_date' => $leave->end_date->format('Y-m-d'),
+                'days_requested' => $leave->days_requested,
+                'status' => $leave->status,
+            ];
+        })->values()->toArray();
+    }
+
+    /**
+     * Get team leaves with statistics (for manager dashboard)
+     * 
+     * @param \App\Models\User $manager
+     * @return array ['leaves' => Collection, 'statistics' => array]
+     */
+    public static function getTeamLeavesWithStatistics($manager)
+    {
+        // Managers can only see their subordinates' leaves
+        $allLeaves = Leave::with(['user.manager', 'reviewer'])
+            ->whereHas('user', function($q) use ($manager) {
+                $q->where('manager_id', $manager->id);
+            })
+            ->orderBy('created_at', 'desc')
+            ->get();
+        
+        // Calculate statistics from team leaves
+        $statistics = [
+            'pending' => $allLeaves->where('status', 'pending')->count(),
+            'approved' => $allLeaves->where('status', 'approved')->count(),
+            'rejected' => $allLeaves->where('status', 'rejected')->count(),
+            'cancelled' => $allLeaves->where('status', 'cancelled')->count(),
+        ];
+        
+        return [
+            'leaves' => $allLeaves,
+            'statistics' => $statistics,
+        ];
+    }
+
+    /**
+     * Get user's own leaves with statistics (for teacher/user dashboard)
+     * 
+     * @param \App\Models\User $user
+     * @return array ['leaves' => Collection, 'statistics' => array]
+     */
+    public static function getUserLeavesWithStatistics($user)
+    {
+        // Users can only see their own leaves
+        $allLeaves = $user->leaves()
+            ->orderBy('created_at', 'desc')
+            ->get();
+        
+        // Calculate statistics from user's leaves
+        $statistics = [
+            'pending' => $allLeaves->where('status', 'pending')->count(),
+            'approved' => $allLeaves->where('status', 'approved')->count(),
+            'rejected' => $allLeaves->where('status', 'rejected')->count(),
+            'cancelled' => $allLeaves->where('status', 'cancelled')->count(),
+        ];
+        
+        return [
+            'leaves' => $allLeaves,
+            'statistics' => $statistics,
+        ];
+    }
+
+    /**
      * Display a listing of the user's leaves.
      */
     public function index(Request $request)

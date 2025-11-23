@@ -8,6 +8,32 @@ use Illuminate\Http\Request;
 class NotificationController extends Controller
 {
     /**
+     * Get notifications for a user (shared method for dashboard and notifications page)
+     * 
+     * @param \App\Models\User $user
+     * @param int|null $limit Optional limit (null = no limit)
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
+    public static function getNotificationsForUser($user, $limit = null)
+    {
+        $query = Notification::where('user_id', $user->id)
+            ->orderBy('created_at', 'desc');
+        
+        if ($limit !== null) {
+            $query->limit($limit);
+        }
+        
+        $notifications = $query->get();
+        
+        // Format timestamps manually to avoid timezone issues
+        foreach ($notifications as $notification) {
+            $notification->formatted_created_at = \Carbon\Carbon::parse($notification->created_at)->format('Y. m. d. H:i:s');
+        }
+        
+        return $notifications;
+    }
+
+    /**
      * Display a listing of notifications for the current user.
      */
     public function index(Request $request)

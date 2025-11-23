@@ -9,6 +9,56 @@ use Illuminate\Http\Request;
 class LogController extends Controller
 {
     /**
+     * Get activity logs for a user (shared method for dashboard and logs page)
+     * 
+     * @param \App\Models\User $user
+     * @param int|null $limit Optional limit (null = no limit)
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
+    public static function getActivityLogsForUser($user, $limit = null)
+    {
+        $query = ActivityLog::with('user');
+        
+        // Filter logs based on current user's role
+        if ($user->role === 'admin') {
+            // Admins can see all logs
+            // No additional user filtering needed
+        } elseif ($user->role === 'manager') {
+            // Managers can see their own logs and logs from their subordinates
+            $subordinateIds = User::where('manager_id', $user->id)->pluck('id')->toArray();
+            $subordinateIds[] = $user->id; // Include themselves
+            
+            $query->where(function($q) use ($subordinateIds, $user) {
+                $q->whereIn('user_id', $subordinateIds)
+                  // Also include logs where this manager is the target (e.g., new subordinate assigned)
+                  ->orWhere(function($subQ) use ($user) {
+                      $subQ->where('target_type', 'App\\Models\\User')
+                           ->where('target_id', $user->id)
+                           ->where('description', 'like', '%Új beosztott%');
+                  });
+            });
+        } else {
+            // Teachers can only see their own logs
+            $query->where('user_id', $user->id);
+        }
+        
+        $query->orderBy('created_at', 'desc');
+        
+        if ($limit !== null) {
+            $query->limit($limit);
+        }
+        
+        $logs = $query->get();
+        
+        // Format timestamps manually to avoid timezone issues
+        foreach ($logs as $log) {
+            $log->formatted_created_at = \Carbon\Carbon::parse($log->created_at)->format('Y. m. d. H:i:s');
+        }
+        
+        return $logs;
+    }
+
+    /**
      * Display a listing of activity logs.
      */
     public function index(Request $request)
@@ -21,21 +71,17 @@ class LogController extends Controller
         $searchTerm = $request->get('search');
         $dateSort = $request->get('date_sort', 'desc');
         
-        // Start building the query
-        $query = ActivityLog::with('user');
+        // Start building the query using the shared method
+        $baseQuery = ActivityLog::with('user');
         
-        // Filter logs based on current user's role
+        // Apply role-based filtering using the same logic as the static method
         if ($currentUser->role === 'admin') {
             // Admins can see all logs
-            // No additional user filtering needed
         } elseif ($currentUser->role === 'manager') {
-            // Managers can see their own logs and logs from their subordinates
             $subordinateIds = User::where('manager_id', $currentUser->id)->pluck('id')->toArray();
-            $subordinateIds[] = $currentUser->id; // Include themselves
-            
-            $query->where(function($q) use ($subordinateIds, $currentUser) {
+            $subordinateIds[] = $currentUser->id;
+            $baseQuery->where(function($q) use ($subordinateIds, $currentUser) {
                 $q->whereIn('user_id', $subordinateIds)
-                  // Also include logs where this manager is the target (e.g., new subordinate assigned)
                   ->orWhere(function($subQ) use ($currentUser) {
                       $subQ->where('target_type', 'App\\Models\\User')
                            ->where('target_id', $currentUser->id)
@@ -43,9 +89,10 @@ class LogController extends Controller
                   });
             });
         } else {
-            // Teachers can only see their own logs
-            $query->where('user_id', $currentUser->id);
+            $baseQuery->where('user_id', $currentUser->id);
         }
+        
+        $query = $baseQuery;
         
         // Apply action filter if specified
         if ($actionFilter && $actionFilter !== 'all') {

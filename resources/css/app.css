@@ -99,3 +99,8 @@
     display: flex !important;
     gap: 0.75rem !important; /* space-x-3 equivalent */
 }
+
+/* Right-align the calendar title (month/year) */
+.fc-toolbar-title {
+    text-align: right !important;
+}
