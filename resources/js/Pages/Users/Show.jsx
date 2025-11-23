@@ -1,6 +1,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import PageContainer from '@/Components/PageContainer';
 import { Head, Link, router } from '@inertiajs/react';
+import { useState } from 'react';
 
 export default function Show({ user, currentUser, remainingLeaveDays, usedLeaveDays }) {
     const getRoleLabel = (role) => {
@@ -71,6 +72,81 @@ export default function Show({ user, currentUser, remainingLeaveDays, usedLeaveD
         if (confirm(`Biztosan újraaktiválni szeretnéd a felhasználót "${user.name}"?`)) {
             router.post(route('felhasznalok.reactivate', user.id));
         }
+    };
+
+    const formatDate = (dateString) => {
+        return new Date(dateString).toLocaleDateString('hu-HU');
+    };
+
+    const handleExport = () => {
+        // Get all visible leaves for this user
+        const visibleLeaves = user.leaves || [];
+
+        if (visibleLeaves.length === 0) {
+            alert('Nincs exportálandó adat.');
+            return;
+        }
+
+        // Define CSV headers
+        const headers = [
+            'ID',
+            'Kategória',
+            'Kezdete',
+            'Vége',
+            'Napok száma',
+            'Állapot',
+            'Indok',
+            'Beküldve'
+        ];
+
+        // Convert leaves to CSV rows
+        const rows = visibleLeaves.map(leave => {
+            const category = leave.category === 'szabadsag' ? 'Szabadság' :
+                           leave.category === 'betegszabadsag' ? 'Betegszabadság' :
+                           leave.category === 'tappenzt' ? 'Táppénz' : 'Egyéb távollét';
+            
+            const status = leave.status === 'pending' ? 'Függőben' :
+                          leave.status === 'approved' ? 'Jóváhagyva' :
+                          leave.status === 'rejected' ? 'Elutasítva' : 'Érvénytelenítve';
+
+            return [
+                leave.id || '',
+                category,
+                formatDate(leave.start_date),
+                formatDate(leave.end_date),
+                leave.days_requested || '',
+                status,
+                leave.reason || '',
+                formatDate(leave.created_at)
+            ];
+        });
+
+        // Escape CSV values and wrap in quotes if needed
+        const escapeCSV = (value) => {
+            if (value === null || value === undefined) return '';
+            const stringValue = String(value);
+            if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+                return `"${stringValue.replace(/"/g, '""')}"`;
+            }
+            return stringValue;
+        };
+
+        // Build CSV content
+        const csvContent = [
+            headers.map(escapeCSV).join(','),
+            ...rows.map(row => row.map(escapeCSV).join(','))
+        ].join('\n');
+
+        // Create blob and download
+        const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' }); // BOM for Excel UTF-8 support
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `szabadsagok_${user.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     };
 
     return (
@@ -247,7 +323,16 @@ export default function Show({ user, currentUser, remainingLeaveDays, usedLeaveD
                     {user.leaves && user.leaves.length > 0 && (
                         <div className="mt-6 bg-white rounded-lg shadow overflow-hidden">
                             <div className="px-6 py-4 border-b border-gray-200">
-                                <h3 className="text-lg font-medium text-gray-900">Szabadság kérelmek</h3>
+                                <div className="flex justify-between items-center">
+                                    <h3 className="text-lg font-medium text-gray-900">Szabadság kérelmek</h3>
+                                    <button
+                                        type="button"
+                                        onClick={handleExport}
+                                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+                                    >
+                                        Export
+                                    </button>
+                                </div>
                             </div>
                             
                             <div className="overflow-x-auto">
@@ -346,7 +431,17 @@ export default function Show({ user, currentUser, remainingLeaveDays, usedLeaveD
                     {(!user.leaves || user.leaves.length === 0) && (
                         <div className="mt-6 bg-white rounded-lg shadow overflow-hidden">
                             <div className="px-6 py-4 border-b border-gray-200">
-                                <h3 className="text-lg font-medium text-gray-900">Szabadság kérelmek</h3>
+                                <div className="flex justify-between items-center">
+                                    <h3 className="text-lg font-medium text-gray-900">Szabadság kérelmek</h3>
+                                    <button
+                                        type="button"
+                                        onClick={handleExport}
+                                        disabled
+                                        className="bg-gray-300 text-gray-600 px-4 py-2 rounded-md text-sm font-medium cursor-not-allowed"
+                                    >
+                                        Export
+                                    </button>
+                                </div>
                             </div>
                             <div className="px-6 py-4">
                                 <p className="text-sm text-gray-500 text-center">

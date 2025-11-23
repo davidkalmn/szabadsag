@@ -171,9 +171,10 @@ class UserController extends Controller
             $query->orderBy('created_at', 'desc');
         }]);
         
-        // Calculate remaining leave days using a fresh query
+        // Calculate remaining leave days using a fresh query (only count normal szabadsag category)
         $usedLeaveDays = (int) \App\Models\Leave::where('user_id', $user->id)
             ->where('status', 'approved')
+            ->where('category', \App\Models\Leave::CATEGORY_SZABADSAG)
             ->sum('days_requested');
         
         $remainingLeaveDays = (int) $user->total_leave_days - $usedLeaveDays;

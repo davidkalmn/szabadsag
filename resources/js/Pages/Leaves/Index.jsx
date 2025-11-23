@@ -104,6 +104,77 @@ export default function Index({ leaves, user, filters = {} }) {
         return new Date(dateString).toLocaleDateString('hu-HU');
     };
 
+    const handleExport = () => {
+        // Get all visible leaves (filtered if filters are applied)
+        const visibleLeaves = leaves || [];
+
+        if (visibleLeaves.length === 0) {
+            alert('Nincs exportálandó adat.');
+            return;
+        }
+
+        // Define CSV headers
+        const headers = [
+            'ID',
+            'Kategória',
+            'Kezdete',
+            'Vége',
+            'Napok száma',
+            'Állapot',
+            'Indok',
+            'Beküldve'
+        ];
+
+        // Convert leaves to CSV rows
+        const rows = visibleLeaves.map(leave => {
+            const category = leave.category === 'szabadsag' ? 'Szabadság' :
+                           leave.category === 'betegszabadsag' ? 'Betegszabadság' :
+                           leave.category === 'tappenzt' ? 'Táppénz' : 'Egyéb távollét';
+            
+            const status = leave.status === 'pending' ? 'Függőben' :
+                          leave.status === 'approved' ? 'Jóváhagyva' :
+                          leave.status === 'rejected' ? 'Elutasítva' : 'Érvénytelenítve';
+
+            return [
+                leave.id || '',
+                category,
+                formatDate(leave.start_date),
+                formatDate(leave.end_date),
+                leave.days_requested || '',
+                status,
+                leave.reason || '',
+                formatDate(leave.created_at)
+            ];
+        });
+
+        // Escape CSV values and wrap in quotes if needed
+        const escapeCSV = (value) => {
+            if (value === null || value === undefined) return '';
+            const stringValue = String(value);
+            if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+                return `"${stringValue.replace(/"/g, '""')}"`;
+            }
+            return stringValue;
+        };
+
+        // Build CSV content
+        const csvContent = [
+            headers.map(escapeCSV).join(','),
+            ...rows.map(row => row.map(escapeCSV).join(','))
+        ].join('\n');
+
+        // Create blob and download
+        const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' }); // BOM for Excel UTF-8 support
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `szabadsagok_${new Date().toISOString().split('T')[0]}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     // Format leaves for FullCalendar - using category colors to match the list
     // Only show approved leaves (exclude rejected and cancelled)
     const calendarEvents = useMemo(() => {
@@ -269,7 +340,7 @@ export default function Index({ leaves, user, filters = {} }) {
 
                     <div className="bg-white rounded-lg shadow overflow-hidden">
                         <div className="px-6 py-4 border-b border-gray-200">
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-8 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-10 gap-4">
                                 <div className="lg:col-span-2">
                                     <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">
                                         Kategória
@@ -308,7 +379,7 @@ export default function Index({ leaves, user, filters = {} }) {
 
                                 <div className="lg:col-span-2">
                                     <label htmlFor="start_date_from" className="block text-sm font-medium text-gray-700 mb-1">
-                                        Szabadság kezdete (tól)
+                                        Tól
                                     </label>
                                     <input
                                         type="date"
@@ -321,7 +392,7 @@ export default function Index({ leaves, user, filters = {} }) {
 
                                 <div className="lg:col-span-2">
                                     <label htmlFor="start_date_to" className="block text-sm font-medium text-gray-700 mb-1">
-                                        Szabadság kezdete (ig)
+                                        Ig
                                     </label>
                                     <input
                                         type="date"
@@ -330,6 +401,16 @@ export default function Index({ leaves, user, filters = {} }) {
                                         onChange={(e) => handleFilterChange('start_date_to', e.target.value)}
                                         className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
                                     />
+                                </div>
+
+                                <div className="lg:col-span-2 flex items-end">
+                                    <button
+                                        type="button"
+                                        onClick={handleExport}
+                                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+                                    >
+                                        Export
+                                    </button>
                                 </div>
                             </div>
                             

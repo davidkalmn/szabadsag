@@ -459,7 +459,7 @@ export default function TeamLeaves({ leaves, user, filters = {}, subordinates = 
 
                                 <div className="lg:col-span-2">
                                     <label htmlFor="filter_start_date_to" className="block text-sm font-medium text-gray-700 mb-1">
-                                        Szabadság kezdete (ig)
+                                        Szabadság vége (ig)
                                     </label>
                                     <input
                                         type="date"
