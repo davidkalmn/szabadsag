@@ -1,8 +1,76 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import PageContainer from '@/Components/PageContainer';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
+import { useState, useMemo } from 'react';
+import FullCalendar from '@fullcalendar/react';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import timeGridPlugin from '@fullcalendar/timegrid';
+import interactionPlugin from '@fullcalendar/interaction';
 
-export default function Index({ leaves, user }) {
+export default function Index({ leaves, user, filters = {} }) {
+
+    const [status, setStatus] = useState(filters.status || '');
+    const [category, setCategory] = useState(filters.category || '');
+    const [startDateFrom, setStartDateFrom] = useState(filters.start_date_from || '');
+    const [startDateTo, setStartDateTo] = useState(filters.start_date_to || '');
+    const [createdFrom, setCreatedFrom] = useState(filters.created_from || '');
+    const [createdTo, setCreatedTo] = useState(filters.created_to || '');
+
+    const handleFilterChange = (filterType, value) => {
+        const newFilters = {
+            status: status,
+            category: category,
+            start_date_from: startDateFrom,
+            start_date_to: startDateTo,
+            created_from: createdFrom,
+            created_to: createdTo,
+        };
+
+        if (filterType === 'status') {
+            newFilters.status = value;
+            setStatus(value);
+        } else if (filterType === 'category') {
+            newFilters.category = value;
+            setCategory(value);
+        } else if (filterType === 'start_date_from') {
+            newFilters.start_date_from = value;
+            setStartDateFrom(value);
+        } else if (filterType === 'start_date_to') {
+            newFilters.start_date_to = value;
+            setStartDateTo(value);
+        } else if (filterType === 'created_from') {
+            newFilters.created_from = value;
+            setCreatedFrom(value);
+        } else if (filterType === 'created_to') {
+            newFilters.created_to = value;
+            setCreatedTo(value);
+        }
+
+        // Remove empty values from the query
+        Object.keys(newFilters).forEach(key => {
+            if (newFilters[key] === '') {
+                delete newFilters[key];
+            }
+        });
+
+        router.get(route('szabadsag.sajat-kerelmek'), newFilters, {
+            preserveState: true,
+            preserveScroll: true,
+        });
+    };
+
+    const clearFilters = () => {
+        setStatus('');
+        setCategory('');
+        setStartDateFrom('');
+        setStartDateTo('');
+        setCreatedFrom('');
+        setCreatedTo('');
+        router.get(route('szabadsag.sajat-kerelmek'), {}, {
+            preserveState: true,
+            preserveScroll: true,
+        });
+    };
     const getStatusBadge = (status) => {
         const statusConfig = {
             pending: {
@@ -34,6 +102,82 @@ export default function Index({ leaves, user }) {
 
     const formatDate = (dateString) => {
         return new Date(dateString).toLocaleDateString('hu-HU');
+    };
+
+    // Format leaves for FullCalendar - using category colors to match the list
+    // Only show approved leaves (exclude rejected and cancelled)
+    const calendarEvents = useMemo(() => {
+        if (!leaves || !Array.isArray(leaves) || leaves.length === 0) {
+            return [];
+        }
+        
+        // Filter out rejected and cancelled leaves, only show approved
+        const approvedLeaves = leaves.filter(leave => leave.status === 'approved');
+        
+        return approvedLeaves.map(leave => {
+            if (!leave.start_date || !leave.end_date) {
+                return null;
+            }
+            
+            // Category colors - exact Tailwind hex codes matching the list badges
+            // bg-{color}-100 for background, text-{color}-800 for text
+            const categoryStyles = {
+                'szabadsag': {
+                    backgroundColor: '#dbeafe',  // blue-100 (bg-blue-100)
+                    textColor: '#1e40af'          // blue-800 (text-blue-800)
+                },
+                'betegszabadsag': {
+                    backgroundColor: '#ffedd5',  // orange-100 (bg-orange-100)
+                    textColor: '#9a3412'          // orange-800 (text-orange-800)
+                },
+                'tappenzt': {
+                    backgroundColor: '#fee2e2',  // red-100 (bg-red-100)
+                    textColor: '#991b1b'          // red-800 (text-red-800)
+                },
+                'egyeb_tavollet': {
+                    backgroundColor: '#f3e8ff',  // purple-100 (bg-purple-100)
+                    textColor: '#6b21a8'          // purple-800 (text-purple-800)
+                }
+            };
+
+            const colors = categoryStyles[leave.category] || {
+                backgroundColor: '#f3f4f6',  // gray-100 fallback
+                textColor: '#6b7280'          // gray-600 fallback
+            };
+            
+            // Category titles
+            const title = leave.category === 'szabadsag' ? 'Szabadság' :
+                         leave.category === 'betegszabadsag' ? 'Betegszabadság' :
+                         leave.category === 'tappenzt' ? 'Táppénz' : 'Egyéb távollét';
+            
+            // Format dates - ensure they're in YYYY-MM-DD format
+            const startDate = new Date(leave.start_date);
+            const endDate = new Date(leave.end_date);
+            endDate.setDate(endDate.getDate() + 1); // Add day because FullCalendar end is exclusive
+            
+            return {
+                id: leave.id ? leave.id.toString() : Math.random().toString(),
+                title: title,
+                start: startDate.toISOString().split('T')[0], // YYYY-MM-DD format
+                end: endDate.toISOString().split('T')[0],     // YYYY-MM-DD format
+                allDay: true,
+                backgroundColor: colors.backgroundColor,
+                borderColor: 'transparent',  // No border
+                borderWidth: 0,
+                textColor: colors.textColor,
+                classNames: ['calendar-event-pill'], // Custom class for styling
+                extendedProps: {
+                    status: leave.status,
+                    category: leave.category,
+                    days_requested: leave.days_requested,
+                    reason: leave.reason,
+                },
+            };
+        }).filter(event => event !== null);
+    }, [leaves]);
+
+    const handleEventClick = (info) => {
+        window.location.href = `/szabadsagok/${info.event.id}`;
     };
 
     return (
@@ -68,9 +212,139 @@ export default function Index({ leaves, user }) {
                         )}
                     </div>
 
+                    {/* Calendar */}
+                    <div className="bg-white rounded-lg shadow p-6 mb-6">
+                        <FullCalendar
+                            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+                            initialView="dayGridMonth"
+                            events={calendarEvents}
+                            headerToolbar={{
+                                left: 'prev,next today',
+                                center: 'title',
+                                right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                            }}
+                            eventClick={handleEventClick}
+                            height="auto"
+                            eventDisplay="block"
+                            buttonText={{
+                                today: 'Ma',
+                                month: 'Hónap',
+                                week: 'Hét',
+                                day: 'Nap'
+                            }}
+                            weekends={true}
+                            firstDay={1}
+                            navLinks={true}
+                            dayMaxEvents={3}
+                            moreLinkClick="popover"
+                            eventMouseEnter={(info) => {
+                                info.el.style.cursor = 'pointer';
+                            }}
+                            locale={{
+                                code: 'hu',
+                                week: {
+                                    dow: 1,
+                                    doy: 4
+                                },
+                                buttonText: {
+                                    prev: 'Előző',
+                                    next: 'Következő',
+                                    today: 'Ma',
+                                    month: 'Hónap',
+                                    week: 'Hét',
+                                    day: 'Nap'
+                                },
+                                weekText: 'Hét',
+                                allDayText: 'Egész nap',
+                                moreLinkText: 'további',
+                                noEventsText: 'Nincsenek események',
+                                dayNames: ['Vasárnap', 'Hétfő', 'Kedd', 'Szerda', 'Csütörtök', 'Péntek', 'Szombat'],
+                                dayNamesShort: ['V', 'H', 'K', 'Sz', 'Cs', 'P', 'Sz'],
+                                dayNamesMin: ['V', 'H', 'K', 'Sz', 'Cs', 'P', 'Sz'],
+                                monthNames: ['Január', 'Február', 'Március', 'Április', 'Május', 'Június', 'Július', 'Augusztus', 'Szeptember', 'Október', 'November', 'December'],
+                                monthNamesShort: ['Jan', 'Feb', 'Már', 'Ápr', 'Máj', 'Jún', 'Júl', 'Aug', 'Sze', 'Okt', 'Nov', 'Dec']
+                            }}
+                        />
+                    </div>
+
                     <div className="bg-white rounded-lg shadow overflow-hidden">
                         <div className="px-6 py-4 border-b border-gray-200">
-                            <h3 className="text-lg font-medium text-gray-900">Szabadság kérelmek listája</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-8 gap-4">
+                                <div className="lg:col-span-2">
+                                    <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">
+                                        Kategória
+                                    </label>
+                                    <select
+                                        id="category"
+                                        value={category}
+                                        onChange={(e) => handleFilterChange('category', e.target.value)}
+                                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                                    >
+                                        <option value="">Összes</option>
+                                        <option value="szabadsag">Szabadság</option>
+                                        <option value="betegszabadsag">Betegszabadság</option>
+                                        <option value="tappenzt">Táppénz</option>
+                                        <option value="egyeb_tavollet">Egyéb távollét</option>
+                                    </select>
+                                </div>
+
+                                <div className="lg:col-span-2">
+                                    <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
+                                        Állapot
+                                    </label>
+                                    <select
+                                        id="status"
+                                        value={status}
+                                        onChange={(e) => handleFilterChange('status', e.target.value)}
+                                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                                    >
+                                        <option value="">Összes</option>
+                                        <option value="pending">Függőben</option>
+                                        <option value="approved">Jóváhagyva</option>
+                                        <option value="rejected">Elutasítva</option>
+                                        <option value="cancelled">Érvénytelenítve</option>
+                                    </select>
+                                </div>
+
+                                <div className="lg:col-span-2">
+                                    <label htmlFor="start_date_from" className="block text-sm font-medium text-gray-700 mb-1">
+                                        Szabadság kezdete (tól)
+                                    </label>
+                                    <input
+                                        type="date"
+                                        id="start_date_from"
+                                        value={startDateFrom}
+                                        onChange={(e) => handleFilterChange('start_date_from', e.target.value)}
+                                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                                    />
+                                </div>
+
+                                <div className="lg:col-span-2">
+                                    <label htmlFor="start_date_to" className="block text-sm font-medium text-gray-700 mb-1">
+                                        Szabadság kezdete (ig)
+                                    </label>
+                                    <input
+                                        type="date"
+                                        id="start_date_to"
+                                        value={startDateTo}
+                                        onChange={(e) => handleFilterChange('start_date_to', e.target.value)}
+                                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                                    />
+                                </div>
+                            </div>
+                            
+                            {/* Clear filters button */}
+                            {(status || category || startDateFrom || startDateTo || createdFrom || createdTo) && (
+                                <div className="mt-4 flex justify-end">
+                                    <button
+                                        type="button"
+                                        onClick={clearFilters}
+                                        className="text-sm text-gray-500 hover:text-gray-700 underline"
+                                    >
+                                        Összes szűrő törlése
+                                    </button>
+                                </div>
+                            )}
                         </div>
                         
                         {leaves.length === 0 ? (

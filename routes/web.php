@@ -62,21 +62,6 @@ Route::middleware('auth')->group(function () {
         });
     });
 
-    // --- Naptár ---
-    Route::prefix('naptar')->name('naptar.')->group(function () {
-        Route::get('sajat-kerelmek', fn () => Inertia::render('Calendar/Mine'))
-            ->middleware('role:teacher,manager,admin')
-            ->name('sajat-kerelmek');
-
-        Route::get('kerelmek', fn () => Inertia::render('Calendar/Team'))
-            ->middleware('role:manager,admin')
-            ->name('kerelmek');
-
-        Route::get('osszes', fn () => Inertia::render('Calendar/All'))
-            ->middleware('role:admin')
-            ->name('osszes');
-    });
-
     // --- Felhasználók (admin és manager) ---
     Route::get('/felhasznalok', [UserController::class, 'index'])
         ->middleware('role:admin,manager')

@@ -17,17 +17,45 @@ class LeaveController extends Controller
     /**
      * Display a listing of the user's leaves.
      */
-    public function index()
+    public function index(Request $request)
     {
         $user = Auth::user();
-        $leaves = $user->leaves()->orderBy('created_at', 'desc')->get();
+        $query = $user->leaves();
+
+        // Apply filters
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->filled('category')) {
+            $query->where('category', $request->category);
+        }
+
+        if ($request->filled('start_date_from')) {
+            $query->where('start_date', '>=', $request->start_date_from);
+        }
+
+        if ($request->filled('start_date_to')) {
+            $query->where('start_date', '<=', $request->start_date_to);
+        }
+
+        if ($request->filled('created_from')) {
+            $query->where('created_at', '>=', $request->created_from);
+        }
+
+        if ($request->filled('created_to')) {
+            $query->where('created_at', '<=', $request->created_to);
+        }
+
+        $leaves = $query->orderBy('created_at', 'desc')->get();
 
         // Calculate actual remaining leaves dynamically
         $user->remaining_leaves_current_year = $user->calculateRemainingLeaves();
 
         return inertia('Leaves/Index', [
             'leaves' => $leaves,
-            'user' => $user
+            'user' => $user,
+            'filters' => $request->only(['status', 'category', 'start_date_from', 'start_date_to', 'created_from', 'created_to'])
         ]);
     }
 
@@ -118,12 +146,27 @@ class LeaveController extends Controller
         // Initialize remaining leaves if not set
         $user->initializeRemainingLeaves();
 
-        $request->validate([
+        // Check if admin/manager is creating leave for another user
+        // If so, allow past dates; otherwise, enforce future-only dates
+        $isCreatingForOther = $request->has('user_id') && $user->id !== $currentUser->id;
+        $isAdminOrManager = in_array($currentUser->role, ['admin', 'manager']);
+        $allowPastDates = $isCreatingForOther && $isAdminOrManager;
+
+        // Build validation rules conditionally
+        $validationRules = [
             'category' => 'required|in:szabadsag,betegszabadsag,tappenzt,egyeb_tavollet',
-            'start_date' => 'required|date|after_or_equal:today',
             'end_date' => 'required|date|after_or_equal:start_date',
             'reason' => 'nullable|string|max:1000',
-        ], [
+        ];
+
+        // Only enforce future dates for regular users creating their own leaves
+        if ($allowPastDates) {
+            $validationRules['start_date'] = 'required|date';
+        } else {
+            $validationRules['start_date'] = 'required|date|after_or_equal:today';
+        }
+
+        $request->validate($validationRules, [
             'category.required' => 'A kategória kiválasztása kötelező.',
             'category.in' => 'Érvénytelen kategória.',
             'start_date.after_or_equal' => 'A kezdő dátum nem lehet a mai napnál korábbi.',
@@ -425,7 +468,7 @@ class LeaveController extends Controller
     /**
      * Display leaves for team management (manager only).
      */
-    public function teamLeaves()
+    public function teamLeaves(Request $request)
     {
         $user = Auth::user();
         
@@ -434,23 +477,54 @@ class LeaveController extends Controller
         }
 
         // Managers can only see their subordinates' leaves
-        $leaves = Leave::with(['user.manager', 'reviewer'])
+        $query = Leave::with(['user.manager', 'reviewer'])
             ->whereHas('user', function($q) use ($user) {
                 $q->where('manager_id', $user->id);
-            })
-            ->orderBy('created_at', 'desc')
-            ->get();
+            });
+
+        // Apply filters
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->filled('category')) {
+            $query->where('category', $request->category);
+        }
+
+        if ($request->filled('start_date_from')) {
+            $query->where('start_date', '>=', $request->start_date_from);
+        }
+
+        if ($request->filled('start_date_to')) {
+            $query->where('start_date', '<=', $request->start_date_to);
+        }
+
+        if ($request->filled('created_from')) {
+            $query->where('created_at', '>=', $request->created_from);
+        }
+
+        if ($request->filled('created_to')) {
+            $query->where('created_at', '<=', $request->created_to);
+        }
+
+        if ($request->filled('user_id')) {
+            $query->where('user_id', $request->user_id);
+        }
+
+        $leaves = $query->orderBy('created_at', 'desc')->get();
 
         return inertia('Leaves/TeamLeaves', [
             'leaves' => $leaves,
-            'user' => $user
+            'user' => $user,
+            'filters' => $request->only(['status', 'category', 'start_date_from', 'start_date_to', 'created_from', 'created_to', 'user_id']),
+            'subordinates' => User::where('manager_id', $user->id)->active()->get(['id', 'name'])
         ]);
     }
 
     /**
      * Display all leaves for admin management (admin only).
      */
-    public function allLeaves()
+    public function allLeaves(Request $request)
     {
         $user = Auth::user();
         
@@ -459,13 +533,222 @@ class LeaveController extends Controller
         }
 
         // Admins can see all leaves
-        $leaves = Leave::with(['user.manager', 'reviewer'])
-            ->orderBy('created_at', 'desc')
-            ->get();
+        $query = Leave::with(['user.manager', 'reviewer']);
+
+        // Apply filters
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->filled('category')) {
+            $query->where('category', $request->category);
+        }
+
+        if ($request->filled('start_date_from')) {
+            $query->where('start_date', '>=', $request->start_date_from);
+        }
+
+        if ($request->filled('start_date_to')) {
+            $query->where('start_date', '<=', $request->start_date_to);
+        }
+
+        if ($request->filled('created_from')) {
+            $query->where('created_at', '>=', $request->created_from);
+        }
+
+        if ($request->filled('created_to')) {
+            $query->where('created_at', '<=', $request->created_to);
+        }
+
+        if ($request->filled('user_id')) {
+            $query->where('user_id', $request->user_id);
+        }
+
+        $leaves = $query->orderBy('created_at', 'desc')->get();
 
         return inertia('Leaves/AllLeaves', [
             'leaves' => $leaves,
+            'user' => $user,
+            'filters' => $request->only(['status', 'category', 'start_date_from', 'start_date_to', 'created_from', 'created_to', 'user_id']),
+            'users' => User::active()->orderBy('name')->get(['id', 'name'])
+        ]);
+    }
+
+    /**
+     * Display calendar view for user's own leaves.
+     */
+    public function calendarMine(Request $request)
+    {
+        // Use the EXACT same query logic as index() method
+        $user = Auth::user();
+        $query = $user->leaves();
+
+        // Note: Not applying filters for calendar view, but using same base query
+        // This is exactly the same as index() when no filters are applied
+        
+        $leaves = $query->orderBy('created_at', 'desc')->get();
+
+        // Calculate actual remaining leaves dynamically (same as index)
+        $user->remaining_leaves_current_year = $user->calculateRemainingLeaves();
+        
+        // Debug logging
+        \Log::info('Calendar Mine - User ID: ' . $user->id);
+        \Log::info('Calendar Mine - Leaves count: ' . $leaves->count());
+        
+        if ($leaves->count() > 0) {
+            \Log::info('Calendar Mine - First leave: ' . json_encode([
+                'id' => $leaves->first()->id,
+                'user_id' => $leaves->first()->user_id,
+                'start_date' => $leaves->first()->start_date->format('Y-m-d'),
+                'end_date' => $leaves->first()->end_date->format('Y-m-d'),
+                'category' => $leaves->first()->category,
+                'status' => $leaves->first()->status,
+            ]));
+        } else {
+            \Log::warning('Calendar Mine - No leaves found for user ' . $user->id);
+        }
+        
+        // Pass leaves as collection (Inertia converts it automatically, same as index() method)
+        // But let's also verify the query is correct - use same pattern as index()
+        return inertia('Calendar/Mine', [
+            'leaves' => $leaves->values(),  // Ensure it's a collection with sequential keys
             'user' => $user
+        ]);
+    }
+
+    /**
+     * Display calendar view for team leaves (manager only).
+     */
+    public function calendarTeam()
+    {
+        $user = Auth::user();
+        
+        if ($user->role !== 'manager') {
+            abort(403, 'Nincs jogosultságod a csapat naptár megtekintéséhez.');
+        }
+
+        // Use the same query pattern as teamLeaves() method
+        $leaves = Leave::with(['user.manager', 'reviewer'])
+            ->whereHas('user', function($q) use ($user) {
+                $q->where('manager_id', $user->id);
+            })
+            ->orderBy('start_date')
+            ->get();
+
+        // Format leaves for FullCalendar
+        $events = $leaves->map(function ($leave) {
+            $categoryColors = [
+                'szabadsag' => '#3b82f6',
+                'betegszabadsag' => '#f97316',
+                'tappenzt' => '#ef4444',
+                'egyeb_tavollet' => '#9333ea',
+            ];
+
+            $statusColors = [
+                'pending' => '#eab308',
+                'approved' => '#22c55e',
+                'rejected' => '#ef4444',
+                'cancelled' => '#6b7280',
+            ];
+
+            $color = $statusColors[$leave->status] ?? '#6b7280';
+
+            return [
+                'id' => $leave->id,
+                'title' => $leave->user->name . ' - ' . (
+                    ($leave->category === 'szabadsag' ? 'Szabadság' :
+                    ($leave->category === 'betegszabadsag' ? 'Betegszabadság' :
+                    ($leave->category === 'tappenzt' ? 'Táppénz' : 'Egyéb távollét')))
+                ),
+                'start' => $leave->start_date->format('Y-m-d'),
+                'end' => $leave->end_date->copy()->addDay()->format('Y-m-d'), // Add day because FullCalendar end is exclusive
+                'color' => $color,
+                'extendedProps' => [
+                    'status' => $leave->status,
+                    'category' => $leave->category,
+                    'days_requested' => $leave->days_requested,
+                    'user_name' => $leave->user->name,
+                    'user_id' => $leave->user->id,
+                    'reason' => $leave->reason,
+                ],
+            ];
+        });
+        
+        $eventsArray = $events->map(function($event) {
+            return $event;
+        })->values()->all();
+        
+        return inertia('Calendar/Team', [
+            'events' => $eventsArray,
+            'user' => $user,
+            'subordinates' => User::where('manager_id', $user->id)->active()->get(['id', 'name'])
+        ]);
+    }
+
+    /**
+     * Display calendar view for all leaves (admin only).
+     */
+    public function calendarAll()
+    {
+        $user = Auth::user();
+        
+        if ($user->role !== 'admin') {
+            abort(403, 'Nincs jogosultságod az összes naptár megtekintéséhez.');
+        }
+
+        // Use the same query pattern as allLeaves() method
+        $leaves = Leave::with(['user.manager', 'reviewer'])
+            ->orderBy('start_date')
+            ->get();
+
+        // Format leaves for FullCalendar
+        $events = $leaves->map(function ($leave) {
+            $categoryColors = [
+                'szabadsag' => '#3b82f6',
+                'betegszabadsag' => '#f97316',
+                'tappenzt' => '#ef4444',
+                'egyeb_tavollet' => '#9333ea',
+            ];
+
+            $statusColors = [
+                'pending' => '#eab308',
+                'approved' => '#22c55e',
+                'rejected' => '#ef4444',
+                'cancelled' => '#6b7280',
+            ];
+
+            $color = $statusColors[$leave->status] ?? '#6b7280';
+
+            return [
+                'id' => $leave->id,
+                'title' => $leave->user->name . ' - ' . (
+                    ($leave->category === 'szabadsag' ? 'Szabadság' :
+                    ($leave->category === 'betegszabadsag' ? 'Betegszabadság' :
+                    ($leave->category === 'tappenzt' ? 'Táppénz' : 'Egyéb távollét')))
+                ),
+                'start' => $leave->start_date->format('Y-m-d'),
+                'end' => $leave->end_date->copy()->addDay()->format('Y-m-d'), // Add day because FullCalendar end is exclusive
+                'color' => $color,
+                'extendedProps' => [
+                    'status' => $leave->status,
+                    'category' => $leave->category,
+                    'days_requested' => $leave->days_requested,
+                    'user_name' => $leave->user->name,
+                    'user_id' => $leave->user->id,
+                    'manager_name' => $leave->user->manager ? $leave->user->manager->name : null,
+                    'reason' => $leave->reason,
+                ],
+            ];
+        });
+        
+        $eventsArray = $events->map(function($event) {
+            return $event;
+        })->values()->all();
+        
+        return inertia('Calendar/All', [
+            'events' => $eventsArray,
+            'user' => $user,
+            'users' => User::active()->orderBy('name')->get(['id', 'name'])
         ]);
     }
 }

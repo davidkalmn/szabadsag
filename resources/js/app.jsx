@@ -1,5 +1,6 @@
 import '../css/app.css';
 import './bootstrap';
+// FullCalendar CSS will be loaded via component imports
 
 import { createInertiaApp } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';

@@ -90,34 +90,6 @@ export default function Navbar() {
             });
         }
 
-        // Naptár (Calendar) section
-        const calendarItems = [
-            {
-                name: 'Saját naptár',
-                href: route('naptar.sajat-kerelmek'),
-                route: 'naptar.sajat-kerelmek',
-                roles: ['teacher', 'manager', 'admin']
-            }
-        ];
-
-        if (['manager', 'admin'].includes(user.role)) {
-            calendarItems.push({
-                name: 'Csapat naptár',
-                href: route('naptar.kerelmek'),
-                route: 'naptar.kerelmek',
-                roles: ['manager', 'admin']
-            });
-        }
-
-        if (user.role === 'admin') {
-            calendarItems.push({
-                name: 'Összes naptár',
-                href: route('naptar.osszes'),
-                route: 'naptar.osszes',
-                roles: ['admin']
-            });
-        }
-
         // Admin only items
         const adminItems = [];
         // Note: Napló is now available to all users, so no admin-only items for now
@@ -162,7 +134,6 @@ export default function Navbar() {
         return {
             main: items,
             leaves: leaveItems,
-            calendar: calendarItems,
             admin: adminItems,
             userManagement: userManagementItems,
             common: commonItems
@@ -185,7 +156,7 @@ export default function Navbar() {
 
                         {/* Desktop navigation */}
                         <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
-                            {/* Group 1: Main navigation (Dashboard, Szabadságok, Naptár) */}
+                            {/* Group 1: Main navigation (Dashboard, Szabadságok) */}
                             {/* Main navigation */}
                             {navigationItems.main.map((item) => (
                                 <NavLink
@@ -227,47 +198,6 @@ export default function Navbar() {
 
                                     <Dropdown.Content>
                                         {navigationItems.leaves.map((item) => (
-                                            <Dropdown.Link
-                                                key={item.name}
-                                                href={item.href}
-                                            >
-                                                {item.name}
-                                            </Dropdown.Link>
-                                        ))}
-                                    </Dropdown.Content>
-                                </Dropdown>
-                            </div>
-
-                            {/* Naptár dropdown */}
-                            <div className="relative inline-flex items-center">
-                                <Dropdown>
-                                    <Dropdown.Trigger>
-                                        <button
-                                            type="button"
-                                            className={`inline-flex h-16 items-center border-b-2 px-1 pt-1 text-sm font-medium leading-5 transition duration-150 ease-in-out focus:outline-none ${
-                                                route().current('naptar.*')
-                                                    ? 'border-indigo-400 text-gray-900 focus:border-indigo-700'
-                                                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 focus:border-gray-300 focus:text-gray-700'
-                                            }`}
-                                        >
-                                            Naptár
-                                            <svg
-                                                className="-me-0.5 ms-2 h-4 w-4"
-                                                xmlns="http://www.w3.org/2000/svg"
-                                                viewBox="0 0 20 20"
-                                                fill="currentColor"
-                                            >
-                                                <path
-                                                    fillRule="evenodd"
-                                                    d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                                                    clipRule="evenodd"
-                                                />
-                                            </svg>
-                                        </button>
-                                    </Dropdown.Trigger>
-
-                                    <Dropdown.Content>
-                                        {navigationItems.calendar.map((item) => (
                                             <Dropdown.Link
                                                 key={item.name}
                                                 href={item.href}
@@ -445,7 +375,7 @@ export default function Navbar() {
                 }
             >
                 <div className="space-y-1 pb-3 pt-2">
-                    {/* Group 1: Main navigation (Dashboard, Szabadságok, Naptár) */}
+                    {/* Group 1: Main navigation (Dashboard, Szabadságok) */}
                     {/* Main navigation */}
                     {navigationItems.main.map((item) => (
                         <ResponsiveNavLink
@@ -464,23 +394,6 @@ export default function Navbar() {
                         </div>
                     </div>
                     {navigationItems.leaves.map((item) => (
-                        <ResponsiveNavLink
-                            key={item.name}
-                            href={item.href}
-                            active={route().current(item.route)}
-                            className="pl-8"
-                        >
-                            {item.name}
-                        </ResponsiveNavLink>
-                    ))}
-
-                    {/* Naptár section */}
-                    <div className="px-4 py-2">
-                        <div className="text-sm font-medium text-gray-500 uppercase tracking-wider">
-                            Naptár
-                        </div>
-                    </div>
-                    {navigationItems.calendar.map((item) => (
                         <ResponsiveNavLink
                             key={item.name}
                             href={item.href}

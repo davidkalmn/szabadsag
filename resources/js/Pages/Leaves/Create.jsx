@@ -314,7 +314,7 @@ export default function Create({ user, isCreatingForOther = false, currentUser }
                                         id="start_date"
                                         value={data.start_date}
                                         onChange={handleStartDateChange}
-                                        min={new Date().toISOString().split('T')[0]}
+                                        min={isCreatingForOther ? undefined : new Date().toISOString().split('T')[0]}
                                         disabled={user.remaining_leaves_current_year === 0 && isNormalLeave}
                                         className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${
                                             errors.start_date ? 'border-red-300' : 'border-gray-300'
@@ -323,6 +323,11 @@ export default function Create({ user, isCreatingForOther = false, currentUser }
                                     />
                                     {errors.start_date && (
                                         <p className="mt-1 text-sm text-red-600">{errors.start_date}</p>
+                                    )}
+                                    {isCreatingForOther && (
+                                        <p className="mt-1 text-xs text-gray-500">
+                                            Adminisztrátor/menedzser módban múltbeli dátumok is megadhatók
+                                        </p>
                                     )}
                                 </div>
 
@@ -337,7 +342,7 @@ export default function Create({ user, isCreatingForOther = false, currentUser }
                                         id="end_date"
                                         value={data.end_date}
                                         onChange={handleEndDateChange}
-                                        min={data.start_date || new Date().toISOString().split('T')[0]}
+                                        min={data.start_date || (isCreatingForOther ? undefined : new Date().toISOString().split('T')[0])}
                                         disabled={!data.start_date || (user.remaining_leaves_current_year === 0 && isNormalLeave)}
                                         className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${
                                             errors.end_date ? 'border-red-300' : 'border-gray-300'
