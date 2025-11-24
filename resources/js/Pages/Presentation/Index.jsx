@@ -263,7 +263,7 @@ export default function Presentation() {
                                     <div className="mb-2">]);</div>
                                     <div className="mt-4 mb-2"><span className="text-blue-600">// Frontend (React Component)</span></div>
                                     <div className="mb-2"><span className="text-purple-600">export default function</span> <span className="text-green-600">Dashboard</span>({'{'}<span className="text-orange-600">statistics</span>, <span className="text-orange-600">leaves</span>{'}'}) {'{'}</div>
-                                    <div className="ml-4 mb-2"><span className="text-purple-600">return</span> (<span className="text-green-600">&lt;div&gt;</span>...<span className="text-green-600">&lt;/div&gt;</span>);</div>
+                                    <div className="ml-4 mb-2"><span className="text-purple-600">return</span> (<span className="text-green-600">&lt;div&gt;</span>{'...'}<span className="text-green-600">&lt;/div&gt;</span>);</div>
                                     <div className="mb-2">{'}'}</div>
                                 </div>
                                 <div className="bg-indigo-100 rounded p-4 text-sm text-indigo-900">
@@ -956,7 +956,7 @@ export default function Presentation() {
                                     <div className="text-sm text-green-800 space-y-2">
                                         <div><strong>Metódus:</strong> Leave::calculateWeekdays($startDate, $endDate)</div>
                                         <div><strong>Algoritmus:</strong> Iteratív dátum iteráció Carbon library-vel</div>
-                                        <div><strong>Hétköznap Szűrés:</strong> dayOfWeek >= 1 && dayOfWeek <= 5 (Carbon API)</div>
+                                        <div><strong>Hétköznap Szűrés:</strong> dayOfWeek {'>='} 1 {'&&'} dayOfWeek {'<='} 5 (Carbon API)</div>
                                         <div><strong>Ünnepek:</strong> Leave::getHungarianHolidays($year) statikus metódus</div>
                                         <div><strong>Dinamikus Számítás:</strong> User::calculateRemainingLeaves() - approved + pending</div>
                                         <div><strong>Performance:</strong> O(n) komplexitás, ahol n = napok száma</div>
