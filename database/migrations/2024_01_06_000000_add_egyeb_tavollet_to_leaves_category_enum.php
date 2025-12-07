@@ -12,7 +12,14 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Update the enum to include 'egyeb_tavollet'
+        // SQLite doesn't support MODIFY COLUMN, so we need to handle it differently
+        if (DB::getDriverName() === 'sqlite') {
+            // For SQLite, we can't modify the column, but the application will handle the 'egyeb_tavollet' category
+            // The column is already a string type in SQLite, so no migration needed
+            return;
+        }
+        
+        // For MySQL/MariaDB, update the enum to include 'egyeb_tavollet'
         DB::statement("ALTER TABLE leaves MODIFY COLUMN category ENUM('szabadsag', 'betegszabadsag', 'tappenzt', 'egyeb_tavollet') DEFAULT 'szabadsag'");
     }
 
@@ -21,6 +28,10 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
+        
         // Revert back to original enum values (remove egyeb_tavollet)
         DB::statement("ALTER TABLE leaves MODIFY COLUMN category ENUM('szabadsag', 'betegszabadsag', 'tappenzt') DEFAULT 'szabadsag'");
     }

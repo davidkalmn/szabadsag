@@ -3,6 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -18,7 +19,12 @@ return new class extends Migration
             $table->date('end_date');
             $table->integer('days_requested');
             $table->text('reason')->nullable();
-            $table->enum('status', ['pending', 'approved', 'rejected'])->default('pending');
+            // Use string for SQLite compatibility, enum validation is handled in the model
+            if (DB::getDriverName() === 'sqlite') {
+                $table->string('status')->default('pending');
+            } else {
+                $table->enum('status', ['pending', 'approved', 'rejected'])->default('pending');
+            }
             $table->foreignId('reviewed_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamp('reviewed_at')->nullable();
             $table->text('review_notes')->nullable();

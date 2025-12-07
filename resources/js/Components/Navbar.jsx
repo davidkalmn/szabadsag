@@ -119,12 +119,6 @@ export default function Navbar() {
                 route: 'gyik',
                 roles: ['teacher', 'manager', 'admin']
             },
-            {
-                name: 'Bemutatás',
-                href: route('bemutatas'),
-                route: 'bemutatas',
-                roles: ['teacher', 'manager', 'admin']
-            }
         ];
 
         // Logs only for managers and admins
@@ -262,12 +256,12 @@ export default function Navbar() {
                             ))}
 
                             {/* Separator 2: Between Group 2 and Group 3 */}
-                            {navigationItems.common.some(item => item.name === 'GYIK' || item.name === 'Bemutatás') && (
+                            {navigationItems.common.some(item => item.name === 'GYIK') && (
                                 <div className="h-8 w-px bg-gray-300 self-center"></div>
                             )}
 
-                            {/* Group 3: General items (GYIK, Bemutatás) */}
-                            {navigationItems.common.filter(item => item.name === 'GYIK' || item.name === 'Bemutatás').map((item) => (
+                            {/* Group 3: General items (GYIK) */}
+                            {navigationItems.common.filter(item => item.name === 'GYIK').map((item) => (
                                 <NavLink
                                     key={item.name}
                                     href={item.href}
@@ -477,12 +471,12 @@ export default function Navbar() {
                     ))}
 
                     {/* Separator 2: Between Group 2 and Group 3 */}
-                    {navigationItems.common.some(item => item.name === 'GYIK' || item.name === 'Bemutatás') && (
+                    {navigationItems.common.some(item => item.name === 'GYIK') && (
                         <div className="mx-4 border-t border-gray-200"></div>
                     )}
 
-                    {/* Group 3: General items (GYIK, Bemutatás) */}
-                    {navigationItems.common.filter(item => item.name === 'GYIK' || item.name === 'Bemutatás').map((item) => (
+                    {/* Group 3: General items (GYIK) */}
+                    {navigationItems.common.filter(item => item.name === 'GYIK').map((item) => (
                         <ResponsiveNavLink
                             key={item.name}
                             href={item.href}

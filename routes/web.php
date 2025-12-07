@@ -16,9 +16,6 @@ Route::get('/', function () {
         : redirect()->route('login');
 })->name('home');
 
-// Presentation page (accessible without auth)
-Route::get('/bemutatas', fn () => Inertia::render('Presentation/Index'))->name('bemutatas');
-
 Route::get('/dashboard', [DashboardController::class, 'index'])
     ->middleware(['auth'])
     ->name('dashboard');
